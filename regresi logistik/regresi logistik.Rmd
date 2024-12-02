@@ -1,0 +1,1177 @@
+---
+title: "Tugas Teknik Pembelajaran Mesin - Regresi Logistik"
+author: "Hana Faiza Amalina"
+date: "2023-02-11"
+output:
+  rmdformats::downcute:
+    self_contained: true
+    code_download: false
+    toc_float: true
+    toc_depth: 3
+    df_print: paged
+    code_folding: show
+    theme: journal
+    highlight: "kate"
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<head>
+
+<span style="color: #dd5353">
+
+<center><font size="+5" face="Times New Romanq"><strong>Pemodelan Data
+Performa Pemain Bola Basket NBA terhadap Lama Karier dengan Regresi
+Logistik </strong></font></center>
+
+</span>
+
+<center>
+
+</center>
+
+</head>
+
+# Pendahuluan
+
+## Latar Belakang
+
+Bola basket merupakan cabang olahraga yang dilakukan oleh tim dengan
+lima pemain. National Basketball Association (NBA) merupakan kompetisi
+basket paling bergengsi di dunia dengan para pemain ternama. Setiap
+pemain yang berkompetisi memiliki performa masing-masing. Berdasarkan
+performa tersebut, terdapat performa yang menjadi faktor berpengaruh
+terhadap lama karier pemain. Oleh karena itu, akan dilakukan regresi
+logistik untuk mengetahui faktor tersebut.
+
+## Tujuan
+
+Penelitian ini bertujuan mengetahui performa pemain bola basket yang
+mempengaruhi lama karier pemain bola basket melalui regresi logistik.
+
+# Tinjauan Pustaka
+
+## Regresi Logistik
+
+Regresi Logistik adalah suatu metode analisis statistika untuk
+mendeskripsikan hubungan antara peubah respon/terikat (*dependent
+variable)* yang memiliki dua kategori atau lebih dengan satu atau lebih
+peubah bebas (*independent variable)* berskala kategori atau kontinu.
+
+![](C:/Users/Lenovo/Downloads/reglog.jpg)
+
+# Metodologi Penelitian
+
+## Data
+
+Data yang digunakan merupakan data NBA *basketball* terdiri dari 1340
+observasi berupa nama pemain bola basket beserta performanya. Data
+terdiri dari 21 peubah dan 20 peubah (tanpa peubah nama) yang mana 19
+peubah penjelas dan 1 peubah respon yaitu TARGET_5Yrs. Peubah penjelas
+memiliki tipe peubah numerik, sedangkan peubah respon memiliki tipe
+peubah kategorik.Adapun peubah yang digunakan sebagai berikut
+
+| Peubah | Keterangan | Tipe Peubah | Peubah | Keterangan | Tipe Peubah |
+|------------|------------|------------|------------|------------|------------|
+| Name | Name | Kategorik | FTA | FreeThrowAttempts | Numerik |
+| GP | GamesPlayed | Numerik | FT% | FreeThrowPercent | Numerik |
+| MIN | MinutesPlayed | Numerik | OREB | OffensiveRebounds | Numerik |
+| PTS | PointsPerGame | Numerik | DREB | DefensiveRebounds | Numerik |
+| FGM | FieldGoalsMade | Numerik | REB | Rebounds | Numerik |
+| FGA | FieldGoalsAttempt | Numerik | AST | Assists | Numerik |
+| FG% | FieldGoalsPercent | Numerik | STL | Steals | Numerik |
+| 3P Made | 3PointMade | Numerik | BLK | Blocks | Numerik |
+| 3PA | 3PointAttempts | Numerik | TOV | Turnovers | Numerik |
+| 3P% | 3PointPercent | Numerik | TARGET_5Yrs | Outcome: 1 if career length \>= 5 yrs, 0 if \< 5 yrs | Kategorik |
+| FTM | FreeThrowMade | Numerik |  |  |  |
+
+# Library
+
+```{r, message=FALSE, warning=FALSE, collapse=TRUE}
+library(mlbench) # data pima Indian Dataset
+library(cowplot) # menampilkan plot dalam bentuk Grid
+library(caret)
+library(car)
+library(dplyr)
+library(tidyverse)
+library(caret)
+library(skimr)
+library(ggplot2)
+library(cowplot)
+library(dplyr)
+library(gridExtra)
+library(glmnet)
+```
+
+# Input Data
+
+Berikut adalah data performa pemain basket yang akan dianalisis
+menggunakan metode regresi logistik.
+
+```{r}
+basket <- readxl::read_excel("C:/Users/hanfai/portfolio/regresi logistik/data reglog.xlsx")
+basket$TARGET_5Yrs <- as.factor(basket$TARGET_5Yrs)
+head(basket)
+str(basket)
+basket$Name <- NULL
+```
+
+# Penyiapan dan Eksplorasi Data
+
+Sebelum dilakukan eksplorasi terhadap peubah-peubah yang digunakan, data
+perlu dipersiapkan terlebih dahulu dan diperiksa apakah ada missing
+value ataupun peubah yang berisi banyak nilai nol.
+
+```{r}
+skimr::skim(basket)
+colSums(is.na(basket))
+colSums(basket==0)
+```
+
+Berdasarkan output di atas terlihat bahwa terdapat banyak peubah dengan
+sejumlah baris missing value dan terdapat pula beberapa peubah yang
+banyak bernilai nol. Oleh karena itu perlu dilakukan penyiapan data
+dengan mengganti nilai amatan missing value serta outlier dengan nilai
+rata-rata peubah tersebut.
+
+## GP (GamesPlayed)
+
+Peubah GP merupakan salah satu peubah yang memiliki baris missing value
+sehingga perlu dilakukan penanganan dengan mengisi baris tersebut dengan
+nilai mean atau rataan. Kemudian juga dilakukan pengecekan apakah
+terdapat outlier atau tidak pada peubah tersebut. Pengecekan berikut
+dilakukan pada seluruh peubah.
+
+### Penanganan Missing Value dan Outlier
+
+```{r}
+GP <- basket[!is.na(basket$GP),"GP"]
+colSums(is.na(GP))
+str(GP)
+summary(GP)
+
+# Mengganti nilai NA dengan mean
+
+# R base
+basket$GP <- ifelse(is.na(basket$GP), 61.22, basket$GP)
+
+q1 <- quantile(basket$GP, probs=0.25, names=F)
+q3 <- quantile(basket$GP, probs=0.75, names=F)
+IQR <- q3 - q1
+min <- q1 - 1.5*IQR
+max <- q3 + 1.5*IQR
+```
+
+Setelah dilakukan analisis ternyata tidak ada outlier sehingga tidak
+perlu dilakukan penanganan kembali.
+
+### Eksplorasi Peubah
+
+```{r}
+pl1 <- ggplot(basket, aes(x=GP))
+pl1 <- pl1 + 
+  geom_bar(fill="red", alpha = 0.6, aes(fill=..count..))
+
+pl2 <- ggplot(basket, aes(y=GP))
+
+pl2 <- pl2 + 
+  geom_boxplot(fill="red", alpha=0.6) + coord_flip() + theme_classic()
+
+
+pl3 <- ggplot(basket, aes(x=GP, y=TARGET_5Yrs))
+
+# Boxplot Kolom GP menurut kondisi basket
+pl3 <- pl3 + 
+  geom_boxplot(aes(fill=TARGET_5Yrs)) + coord_flip() + theme_classic()
+
+plot_grid(plotlist = list(pl1, pl2, pl3))
+```
+
+Hasil eksplorasi menunjukkan sebaran peubah GamesPlayed cenderung
+menjulur ke kiri (terdapat beberapa pemain yang memiliki nilai GP lebih
+rendah dari sebagian besar pemain lainnya) dan nilai rataan GP pemain
+dengan karir panjang cenderung lebih besar.
+
+## MIN (MinutesPlayed)
+
+### Penanganan Missing Value dan Outlier
+
+```{r}
+MIN <- basket[!is.na(basket$MIN),"MIN"]
+colSums(is.na(MIN))
+str(MIN)
+summary(MIN)
+
+# Mengganti nilai NA dengan mean
+
+# R base
+basket$MIN <- ifelse(is.na(basket$MIN), 18.16, basket$MIN)
+
+q1 <- quantile(basket$MIN, probs=0.25, names=F)
+q3 <- quantile(basket$MIN, probs=0.75, names=F)
+IQR <- q3 - q1
+min <- q1 - 1.5*IQR
+max <- q3 + 1.5*IQR
+
+non.outlier <- basket[basket$MIN >= min, "MIN"]
+non.outlier <- non.outlier[non.outlier <= max]
+summary(non.outlier)
+basket$MIN <- ifelse(basket$MIN < min, 18.39, basket$MIN)
+basket$MIN <- ifelse(basket$MIN > max, 18.39, basket$MIN)
+summary(MIN)
+```
+
+### Eksplorasi Peubah
+
+```{r}
+pl1 <- ggplot(basket, aes(x=MIN))
+pl1 <- pl1 + 
+  geom_bar(fill="red", alpha = 0.6, aes(fill=..count..))
+
+pl2 <- ggplot(basket, aes(y=MIN))
+
+pl2 <- pl2 + 
+  geom_boxplot(fill="red", alpha=0.6) + coord_flip() + theme_classic()
+
+
+pl3 <- ggplot(basket, aes(x=MIN, y=TARGET_5Yrs))
+
+# Boxplot Kolom MIN menurut kondisi basket
+pl3 <- pl3 + 
+  geom_boxplot(aes(fill=TARGET_5Yrs)) + coord_flip() + theme_classic()
+
+plot_grid(plotlist = list(pl1, pl2, pl3))
+```
+
+Hasil eksplorasi menunjukkan sebaran peubah MinutesPlayed cenderung
+menjulur ke kanan (terdapat beberapa pemain yang memiliki nilai MIN
+lebih tinggi dari sebagian besar pemain lainnya) dan nilai rataan MIN
+pemain dengan karir panjang cenderung lebih besar.
+
+## PTS (PointsPerGame)
+
+### Penanganan Missing Value dan Outlier
+
+```{r}
+PTS <- basket[!is.na(basket$PTS),"PTS"]
+colSums(is.na(PTS))
+str(PTS)
+summary(PTS)
+mean.PTS <- mean(PTS, na.rm=T)
+
+# Mengganti nilai NA dengan mean
+
+# R base
+basket$PTS <- ifelse(is.na(basket$PTS), 6.557 , basket$PTS)
+summary(basket$PTS)
+
+q1 <- quantile(basket$PTS, probs=0.25, names=F)
+q3 <- quantile(basket$PTS, probs=0.75, names=F)
+IQR <- q3 - q1
+min <- q1 - 1.5*IQR
+max <- q3 + 1.5*IQR
+
+non.outlier <- basket[basket$PTS >= min, "PTS"]
+non.outlier <- non.outlier[non.outlier <= max]
+summary(non.outlier)
+basket$PTS <- ifelse(basket$PTS < min, 6.106, basket$PTS)
+basket$PTS <- ifelse(basket$PTS > max, 6.106, basket$PTS)
+```
+
+### Eksplorasi Peubah
+
+```{r}
+pl1 <- ggplot(basket, aes(x=PTS))
+pl1 <- pl1 + 
+  geom_bar(fill="red", alpha = 0.6, aes(fill=..count..))
+
+pl2 <- ggplot(basket, aes(y=PTS))
+
+pl2 <- pl2 + 
+  geom_boxplot(fill="red", alpha=0.6) + coord_flip() + theme_classic()
+
+
+pl3 <- ggplot(basket, aes(x=PTS, y=TARGET_5Yrs))
+
+# Boxplot Kolom PTS menurut kondisi basket
+pl3 <- pl3 + 
+  geom_boxplot(aes(fill=TARGET_5Yrs)) + coord_flip() + theme_classic()
+
+plot_grid(plotlist = list(pl1, pl2, pl3))
+```
+
+Hasil eksplorasi menunjukkan sebaran peubah PointsPerGame cenderung
+menjulur ke kanan (terdapat beberapa pemain yang memiliki nilai PTS
+lebih tinggi dari sebagian besar pemain lainnya) dan nilai rataan PTS
+pemain dengan karir panjang cenderung lebih besar.
+
+## FGM (FieldGoalsMade)
+
+### Penanganan Missing Value dan Outlier
+
+```{r}
+FGM <- basket[!is.na(basket$FGM),"FGM"]
+colSums(is.na(FGM))
+str(FGM)
+summary(FGM)
+mean.FGM <- mean(FGM, na.rm=T)
+
+# Mengganti nilai NA dengan mean
+
+# R base
+basket$FGM <- ifelse(is.na(basket$FGM), 2.633 , basket$FGM)
+summary(basket$FGM)
+
+q1 <- quantile(basket$FGM, probs=0.25, names=F)
+q3 <- quantile(basket$FGM, probs=0.75, names=F)
+IQR <- q3 - q1
+min <- q1 - 1.5*IQR
+max <- q3 + 1.5*IQR
+
+non.outlier <- basket[basket$FGM >= min, "FGM"]
+non.outlier <- non.outlier[non.outlier <= max]
+summary(non.outlier)
+basket$FGM <- ifelse(basket$FGM < min, 2.436, basket$FGM)
+basket$FGM <- ifelse(basket$FGM > max, 2.436, basket$FGM)
+```
+
+### Eksplorasi Peubah
+
+```{r}
+pl1 <- ggplot(basket, aes(x=FGM))
+pl1 <- pl1 + 
+  geom_bar(fill="red", alpha = 0.6, aes(fill=..count..))
+
+pl2 <- ggplot(basket, aes(y=FGM))
+
+pl2 <- pl2 + 
+  geom_boxplot(fill="red", alpha=0.6) + coord_flip() + theme_classic()
+
+
+pl3 <- ggplot(basket, aes(x=FGM, y=TARGET_5Yrs))
+
+# Boxplot Kolom FGM menurut kondisi basket
+pl3 <- pl3 + 
+  geom_boxplot(aes(fill=TARGET_5Yrs)) + coord_flip() + theme_classic()
+
+plot_grid(plotlist = list(pl1, pl2, pl3))
+```
+
+Hasil eksplorasi menunjukkan sebaran peubah FieldGoalsMade cenderung
+menjulur ke kanan (terdapat beberapa pemain yang memiliki nilai FGM
+lebih tinggi dari sebagian besar pemain lainnya) dan nilai rataan FGM
+pemain dengan karir panjang cenderung lebih besar.
+
+## FGA (FieldGoalAttempts)
+
+### Penanganan Outlier
+
+```{r}
+q1 <- quantile(basket$FGA, probs=0.25, names=F)
+q3 <- quantile(basket$FGA, probs=0.75, names=F)
+IQR <- q3 - q1
+min <- q1 - 1.5*IQR
+max <- q3 + 1.5*IQR
+
+non.outlier <- basket[basket$FGA >= min, "FGA"]
+non.outlier <- non.outlier[non.outlier <= max]
+summary(non.outlier)
+basket$FGA <- ifelse(basket$FGA < min, 5.409, basket$FGA)
+basket$FGA <- ifelse(basket$FGA > max, 5.409, basket$FGA)
+```
+
+### Eksplorasi Peubah
+
+```{r}
+pl1 <- ggplot(basket, aes(x=FGA))
+pl1 <- pl1 + 
+  geom_bar(fill="red", alpha = 0.6, aes(fill=..count..))
+
+pl2 <- ggplot(basket, aes(y=FGA))
+
+pl2 <- pl2 + 
+  geom_boxplot(fill="red", alpha=0.6) + coord_flip() + theme_classic()
+
+pl3 <- ggplot(basket, aes(x=FGA, y=TARGET_5Yrs))
+
+# Boxplot Kolom FGA menurut kondisi basket
+pl3 <- pl3 + 
+  geom_boxplot(aes(fill=TARGET_5Yrs)) + coord_flip() + theme_classic()
+
+plot_grid(plotlist = list(pl1, pl2, pl3))
+```
+
+Hasil eksplorasi menunjukkan sebaran peubah FieldGoalAttempts cenderung
+menjulur ke kanan (terdapat beberapa pemain yang memiliki nilai FGA
+lebih tinggi dari sebagian besar pemain lainnya) dan nilai rataan FGA
+pemain dengan karir panjang cenderung lebih besar.
+
+## FG% (FieldGoalPercent)
+
+### Penanganan Outlier
+
+```{r}
+q1 <- quantile(basket$`FG%`, probs=0.25, names=F)
+q3 <- quantile(basket$`FG%`, probs=0.75, names=F)
+IQR <- q3 - q1
+min <- q1 - 1.5*IQR
+max <- q3 + 1.5*IQR
+
+non.outlier <- basket[basket$`FG%` >= min, "FG%"]
+non.outlier <- non.outlier[non.outlier <= max]
+summary(non.outlier)
+basket$`FG%` <- ifelse(basket$`FG%` < min, 45.01, basket$`FG%`)
+basket$`FG%` <- ifelse(basket$`FG%` > max, 45.01, basket$`FG%`)
+```
+
+### Eksplorasi Peubah
+
+```{r}
+pl1 <- ggplot(basket, aes(x=`FG%`))
+pl1 <- pl1 + 
+  geom_bar(fill="red", alpha = 0.6, aes(fill=..count..))
+
+pl2 <- ggplot(basket, aes(y=`FG%`))
+
+pl2 <- pl2 + 
+  geom_boxplot(fill="red", alpha=0.6) + coord_flip() + theme_classic()
+
+pl3 <- ggplot(basket, aes(x=`FG%`, y=TARGET_5Yrs))
+
+# Boxplot Kolom `FG%` menurut kondisi basket
+pl3 <- pl3 + 
+  geom_boxplot(aes(fill=TARGET_5Yrs)) + coord_flip() + theme_classic()
+
+plot_grid(plotlist = list(pl1, pl2, pl3))
+```
+
+Hasil eksplorasi menunjukkan sebaran peubah FieldGoalPercent cenderung
+menjulur ke kanan (terdapat beberapa pemain yang memiliki nilai FG%
+lebih tinggi dari sebagian besar pemain lainnya) dan nilai rataan FG%
+pemain dengan karir panjang cenderung lebih besar.
+
+## 3P Made (3PointMade)
+
+Peubah berikut memiliki banyak amatan yang bernilai nol sehingga lebih
+baik dihapus dari data.
+
+```{r}
+length(which(basket$`3P Made`== 0))/length(basket$`3P Made`)
+basket$`3P Made` <- NULL
+```
+
+## 3P% (3PointPercent)
+
+Peubah berikut memiliki banyak amatan yang bernilai nol sehingga lebih
+baik dihapus dari data.
+
+```{r}
+length(which(basket$`3P Made`== 0))/length(basket$`3P Made`)
+basket$`3P%` <- NULL
+```
+
+## 3PA (3PointAttempts)
+
+Peubah berikut memiliki banyak amatan yang bernilai nol sehingga lebih
+baik dihapus dari data.
+
+```{r}
+length(which(basket$`3PA`== 0))/length(basket$`3PA`)
+basket$`3PA` <- NULL
+```
+
+## FTM (FreeThrowMade)
+
+### Penanganan Outlier
+
+```{r}
+q1 <- quantile(basket$FTM, probs=0.25, names=F)
+q3 <- quantile(basket$FTM, probs=0.75, names=F)
+IQR <- q3 - q1
+min <- q1 - 1.5*IQR
+max <- q3 + 1.5*IQR
+
+non.outlier <- basket[basket$FTM >= min, "FTM"]
+non.outlier <- non.outlier[non.outlier <= max]
+summary(non.outlier)
+basket$FTM <- ifelse(basket$FTM < min, 1.141, basket$FTM)
+basket$FTM <- ifelse(basket$FTM > max, 1.141, basket$FTM)
+```
+
+### Eksplorasi Peubah
+
+```{r}
+pl1 <- ggplot(basket, aes(x=FTM))
+pl1 <- pl1 + 
+  geom_bar(fill="red", alpha = 0.6, aes(fill=..count..))
+
+pl2 <- ggplot(basket, aes(y=FTM))
+
+pl2 <- pl2 + 
+  geom_boxplot(fill="red", alpha=0.6) + coord_flip() + theme_classic()
+
+pl3 <- ggplot(basket, aes(x=FTM, y=TARGET_5Yrs))
+
+# Boxplot Kolom FTM menurut kondisi basket
+pl3 <- pl3 + 
+  geom_boxplot(aes(fill=TARGET_5Yrs)) + coord_flip() + theme_classic()
+
+plot_grid(plotlist = list(pl1, pl2, pl3))
+```
+
+Hasil eksplorasi menunjukkan sebaran peubah FreeThrowMade cenderung
+menjulur ke kanan (terdapat beberapa pemain yang memiliki nilai FTM
+lebih tinggi dari sebagian besar pemain lainnya) dan nilai rataan FTM
+pemain dengan karir panjang cenderung lebih besar.
+
+## FTA (FreeThrowAttempts)
+
+### Penanganan Missing Value dan Outlier
+
+```{r}
+FTA<- basket[!is.na(basket$FTA),"FTA"]
+colSums(is.na(FTA))
+str(FTA)
+summary(FTA)
+
+# Mengganti nilai NA dengan mean
+
+# R base
+basket$FTA <- ifelse(is.na(basket$FTA), 1.815 , basket$FTA)
+summary(basket$FTA)
+
+q1 <- quantile(basket$FTA, probs=0.25, names=F)
+q3 <- quantile(basket$FTA, probs=0.75, names=F)
+IQR <- q3 - q1
+min <- q1 - 1.5*IQR
+max <- q3 + 1.5*IQR
+
+non.outlier <- basket[basket$FTA >= min, "FTA"]
+non.outlier <- non.outlier[non.outlier <= max]
+summary(non.outlier)
+basket$FTA <- ifelse(basket$FTA < min, 1.614, basket$FTA)
+basket$FTA <- ifelse(basket$FTA > max, 1.614, basket$FTA)
+```
+
+### Eksplorasi Peubah
+
+```{r}
+pl1 <- ggplot(basket, aes(x=FTA))
+pl1 <- pl1 + 
+  geom_bar(fill="red", alpha = 0.6, aes(fill=..count..))
+
+pl2 <- ggplot(basket, aes(y=FTA))
+
+pl2 <- pl2 + 
+  geom_boxplot(fill="red", alpha=0.6) + coord_flip() + theme_classic()
+
+
+pl3 <- ggplot(basket, aes(x=FTA, y=TARGET_5Yrs))
+
+# Boxplot Kolom FTA menurut kondisi basket
+pl3 <- pl3 + 
+  geom_boxplot(aes(fill=TARGET_5Yrs)) + coord_flip() + theme_classic()
+
+plot_grid(plotlist = list(pl1, pl2, pl3))
+```
+
+Hasil eksplorasi menunjukkan sebaran peubah FreeThrowAttempts cenderung
+menjulur ke kanan (terdapat beberapa pemain yang memiliki nilai FTA
+lebih tinggi dari sebagian besar pemain lainnya) dan nilai rataan FTA
+pemain dengan karir panjang cenderung lebih besar.
+
+## FT% (FreeThrowPercent)
+
+### Penanganan Outlier
+
+```{r}
+q1 <- quantile(basket$`FT%`, probs=0.25, names=F)
+q3 <- quantile(basket$`FT%`, probs=0.75, names=F)
+IQR <- q3 - q1
+min <- q1 - 1.5*IQR
+max <- q3 + 1.5*IQR
+
+non.outlier <- basket[basket$`FT%` >= min, "FT%"]
+non.outlier <- non.outlier[non.outlier <= max]
+summary(non.outlier)
+basket$`FT%` <- ifelse(basket$`FT%` < min, 72.88, basket$`FT%`)
+basket$`FT%` <- ifelse(basket$`FT%` > max, 72.88, basket$`FT%`)
+```
+
+### Eksplorasi Peubah
+
+```{r}
+pl1 <- ggplot(basket, aes(x=`FT%`))
+pl1 <- pl1 + 
+  geom_bar(fill="red", alpha = 0.6, aes(fill=..count..))
+
+pl2 <- ggplot(basket, aes(y=`FT%`))
+
+pl2 <- pl2 + 
+  geom_boxplot(fill="red", alpha=0.6) + coord_flip() + theme_classic()
+
+pl3 <- ggplot(basket, aes(x=`FT%`, y=TARGET_5Yrs))
+
+# Boxplot Kolom `FT%` menurut kondisi basket
+pl3 <- pl3 + 
+  geom_boxplot(aes(fill=TARGET_5Yrs)) + coord_flip() + theme_classic()
+
+plot_grid(plotlist = list(pl1, pl2, pl3))
+```
+
+Hasil eksplorasi menunjukkan sebaran peubah FreeThrowPercent sedikit
+menjulur ke kiri (terdapat beberapa pemain yang memiliki nilai FT% lebih
+rendah dari sebagian besar pemain lainnya) dan nilai rataan FT% pemain
+dengan karir panjang dan pendek tidak jauh berbeda.
+
+## OREB (OffensiveRebounds)
+
+### Penanganan Missing Value dan Outlier
+
+```{r}
+OREB<- basket[!is.na(basket$OREB),"OREB"]
+colSums(is.na(OREB))
+str(OREB)
+summary(OREB)
+
+# Mengganti nilai NA dengan mean
+
+# R base
+basket$OREB <- ifelse(is.na(basket$OREB), 0.9961 , basket$OREB)
+summary(basket$OREB)
+
+q1 <- quantile(basket$OREB, probs=0.25, names=F)
+q3 <- quantile(basket$OREB, probs=0.75, names=F)
+IQR <- q3 - q1
+min <- q1 - 1.5*IQR
+max <- q3 + 1.5*IQR
+
+non.outlier <- basket[basket$OREB >= min, "OREB"]
+non.outlier <- non.outlier[non.outlier <= max]
+summary(non.outlier)
+basket$OREB <- ifelse(basket$OREB < min, 0.9195, basket$OREB)
+basket$OREB <- ifelse(basket$OREB > max, 0.9195, basket$OREB)
+```
+
+### Eksplorasi Peubah
+
+```{r}
+pl1 <- ggplot(basket, aes(x=OREB))
+pl1 <- pl1 + 
+  geom_bar(fill="red", alpha = 0.6, aes(fill=..count..))
+
+pl2 <- ggplot(basket, aes(y=OREB))
+
+pl2 <- pl2 + 
+  geom_boxplot(fill="red", alpha=0.6) + coord_flip() + theme_classic()
+
+
+pl3 <- ggplot(basket, aes(x=OREB, y=TARGET_5Yrs))
+
+# Boxplot Kolom OREB menurut kondisi basket
+pl3 <- pl3 + 
+  geom_boxplot(aes(fill=TARGET_5Yrs)) + coord_flip() + theme_classic()
+
+plot_grid(plotlist = list(pl1, pl2, pl3))
+```
+
+Hasil eksplorasi menunjukkan sebaran peubah OffensiveRebounds cenderung
+menjulur ke kanan (terdapat beberapa pemain yang memiliki nilai OREB
+lebih tinggi dari sebagian besar pemain lainnya) dan nilai rataan OREB
+pemain dengan karir panjang cenderung lebih besar.
+
+## DREB (DefensiveRebounds)
+
+### Penanganan Missing Value dan Outlier
+
+```{r}
+DREB<- basket[!is.na(basket$DREB),"DREB"]
+colSums(is.na(DREB))
+str(DREB)
+summary(DREB)
+
+# Mengganti nilai NA dengan mean
+
+# R base
+basket$DREB <- ifelse(is.na(basket$DREB), 2.004 , basket$DREB)
+summary(basket$DREB)
+
+q1 <- quantile(basket$DREB, probs=0.25, names=F)
+q3 <- quantile(basket$DREB, probs=0.75, names=F)
+IQR <- q3 - q1
+min <- q1 - 1.5*IQR
+max <- q3 + 1.5*IQR
+
+non.outlier <- basket[basket$DREB >= min, "DREB"]
+non.outlier <- non.outlier[non.outlier <= max]
+summary(non.outlier)
+basket$DREB <- ifelse(basket$DREB < min, 1.814, basket$DREB)
+basket$DREB <- ifelse(basket$DREB > max, 1.814, basket$DREB)
+```
+
+### Eksplorasi Peubah
+
+```{r}
+pl1 <- ggplot(basket, aes(x=DREB))
+pl1 <- pl1 + 
+  geom_bar(fill="red", alpha = 0.6, aes(fill=..count..))
+
+pl2 <- ggplot(basket, aes(y=DREB))
+
+pl2 <- pl2 + 
+  geom_boxplot(fill="red", alpha=0.6) + coord_flip() + theme_classic()
+
+
+pl3 <- ggplot(basket, aes(x=DREB, y=TARGET_5Yrs))
+
+# Boxplot Kolom DREB menurut kondisi basket
+pl3 <- pl3 + 
+  geom_boxplot(aes(fill=TARGET_5Yrs)) + coord_flip() + theme_classic()
+
+plot_grid(plotlist = list(pl1, pl2, pl3))
+```
+
+Hasil eksplorasi menunjukkan sebaran peubah DefensiveRebounds cenderung
+menjulur ke kanan (terdapat beberapa pemain yang memiliki nilai DREB
+lebih tinggi dari sebagian besar pemain lainnya) dan nilai rataan DREB
+pemain dengan karir panjang cenderung lebih besar.
+
+## REB (Rebounds)
+
+### Penanganan Outlier
+
+```{r}
+q1 <- quantile(basket$REB, probs=0.25, names=F)
+q3 <- quantile(basket$REB, probs=0.75, names=F)
+IQR <- q3 - q1
+min <- q1 - 1.5*IQR
+max <- q3 + 1.5*IQR
+
+non.outlier <- basket[basket$REB >= min, "REB"]
+non.outlier <- non.outlier[non.outlier <= max]
+summary(non.outlier)
+basket$REB <- ifelse(basket$REB < min, 2.795, basket$REB)
+basket$REB <- ifelse(basket$REB > max, 2.795, basket$REB)
+```
+
+### Eksplorasi Peubah
+
+```{r}
+pl1 <- ggplot(basket, aes(x=REB))
+pl1 <- pl1 + 
+  geom_bar(fill="red", alpha = 0.6, aes(fill=..count..))
+
+pl2 <- ggplot(basket, aes(y=REB))
+
+pl2 <- pl2 + 
+  geom_boxplot(fill="red", alpha=0.6) + coord_flip() + theme_classic()
+
+pl3 <- ggplot(basket, aes(x=REB, y=TARGET_5Yrs))
+
+# Boxplot Kolom REB menurut kondisi basket
+pl3 <- pl3 + 
+  geom_boxplot(aes(fill=TARGET_5Yrs)) + coord_flip() + theme_classic()
+
+plot_grid(plotlist = list(pl1, pl2, pl3))
+```
+
+Hasil eksplorasi menunjukkan sebaran peubah Rebounds cenderung menjulur
+ke kanan (terdapat beberapa pemain yang memiliki nilai REB lebih tinggi
+dari sebagian besar pemain lainnya) dan nilai rataan REB pemain dengan
+karir panjang cenderung lebih besar.
+
+## AST (Assists)
+
+### Penanganan Outlier
+
+```{r}
+q1 <- quantile(basket$AST, probs=0.25, names=F)
+q3 <- quantile(basket$AST, probs=0.75, names=F)
+IQR <- q3 - q1
+min <- q1 - 1.5*IQR
+max <- q3 + 1.5*IQR
+
+non.outlier <- basket[basket$AST >= min, "AST"]
+non.outlier <- non.outlier[non.outlier <= max]
+summary(non.outlier)
+basket$AST <- ifelse(basket$AST < min, 1.268, basket$AST)
+basket$AST <- ifelse(basket$AST > max, 1.268, basket$AST)
+```
+
+### Eksplorasi Peubah
+
+```{r}
+pl1 <- ggplot(basket, aes(x=AST))
+pl1 <- pl1 + 
+  geom_bar(fill="red", alpha = 0.6, aes(fill=..count..))
+
+pl2 <- ggplot(basket, aes(y=AST))
+
+pl2 <- pl2 + 
+  geom_boxplot(fill="red", alpha=0.6) + coord_flip() + theme_classic()
+
+pl3 <- ggplot(basket, aes(x=AST, y=TARGET_5Yrs))
+
+# Boxplot Kolom AST menurut kondisi basket
+pl3 <- pl3 + 
+  geom_boxplot(aes(fill=TARGET_5Yrs)) + coord_flip() + theme_classic()
+
+plot_grid(plotlist = list(pl1, pl2, pl3))
+```
+
+Hasil eksplorasi menunjukkan sebaran peubah Assists cenderung menjulur
+ke kanan (terdapat beberapa pemain yang memiliki nilai AST lebih tinggi
+dari sebagian besar pemain lainnya) dan nilai rataan AST pemain dengan
+karir panjang cenderung lebih besar.
+
+## STL (Steals)
+
+### Penanganan Outlier
+
+```{r}
+q1 <- quantile(basket$STL, probs=0.25, names=F)
+q3 <- quantile(basket$STL, probs=0.75, names=F)
+IQR <- q3 - q1
+min <- q1 - 1.5*IQR
+max <- q3 + 1.5*IQR
+
+non.outlier <- basket[basket$STL >= min, "STL"]
+non.outlier <- non.outlier[non.outlier <= max]
+summary(non.outlier)
+basket$STL <- ifelse(basket$STL < min, 0.5664, basket$STL)
+basket$STL <- ifelse(basket$STL > max, 0.5664, basket$STL)
+```
+
+### Eksplorasi Peubah
+
+```{r}
+pl1 <- ggplot(basket, aes(x=STL))
+pl1 <- pl1 + 
+  geom_bar(fill="red", alpha = 0.6, aes(fill=..count..))
+
+pl2 <- ggplot(basket, aes(y=STL))
+
+pl2 <- pl2 + 
+  geom_boxplot(fill="red", alpha=0.6) + coord_flip() + theme_classic()
+
+pl3 <- ggplot(basket, aes(x=STL, y=TARGET_5Yrs))
+
+# Boxplot Kolom STL menurut kondisi basket
+pl3 <- pl3 + 
+  geom_boxplot(aes(fill=TARGET_5Yrs)) + coord_flip() + theme_classic()
+
+plot_grid(plotlist = list(pl1, pl2, pl3))
+```
+
+Hasil eksplorasi menunjukkan sebaran peubah Steals cenderung menjulur ke
+kanan (terdapat beberapa pemain yang memiliki nilai STL lebih tinggi
+dari sebagian besar pemain lainnya) dan nilai rataan STL pemain dengan
+karir panjang cenderung lebih besar.
+
+## BLK (Blocks)
+
+### Penanganan Outlier
+
+```{r}
+q1 <- quantile(basket$BLK, probs=0.25, names=F)
+q3 <- quantile(basket$BLK, probs=0.75, names=F)
+IQR <- q3 - q1
+min <- q1 - 1.5*IQR
+max <- q3 + 1.5*IQR
+
+non.outlier <- basket[basket$BLK >= min, "BLK"]
+non.outlier <- non.outlier[non.outlier <= max]
+summary(non.outlier)
+basket$BLK <- ifelse(basket$BLK < min, 0.2909, basket$BLK)
+basket$BLK <- ifelse(basket$BLK > max, 0.2909, basket$BLK)
+```
+
+### Eksplorasi Peubah
+
+```{r}
+pl1 <- ggplot(basket, aes(x=BLK))
+pl1 <- pl1 + 
+  geom_bar(fill="red", alpha = 0.6, aes(fill=..count..))
+
+pl2 <- ggplot(basket, aes(y=BLK))
+
+pl2 <- pl2 + 
+  geom_boxplot(fill="red", alpha=0.6) + coord_flip() + theme_classic()
+
+pl3 <- ggplot(basket, aes(x=BLK, y=TARGET_5Yrs))
+
+# Boxplot Kolom BLK menurut kondisi basket
+pl3 <- pl3 + 
+  geom_boxplot(aes(fill=TARGET_5Yrs)) + coord_flip() + theme_classic()
+
+plot_grid(plotlist = list(pl1, pl2, pl3))
+```
+
+Hasil eksplorasi menunjukkan sebaran peubah Blocks cenderung menjulur ke
+kanan (terdapat beberapa pemain yang memiliki nilai BLK lebih tinggi
+dari sebagian besar pemain lainnya) dan nilai rataan BLK pemain dengan
+karir panjang cenderung lebih besar.
+
+## TOV (Turnovers)
+
+### Penanganan Missing Value dan Outlier
+
+```{r}
+TOV<- basket[!is.na(basket$TOV),"TOV"]
+colSums(is.na(TOV))
+str(TOV)
+summary(TOV)
+
+# Mengganti nilai NA dengan mean
+
+# R base
+basket$TOV <- ifelse(is.na(basket$TOV), 1.06, basket$TOV)
+summary(basket$TOV)
+
+q1 <- quantile(basket$TOV, probs=0.25, names=F)
+q3 <- quantile(basket$TOV, probs=0.75, names=F)
+IQR <- q3 - q1
+min <- q1 - 1.5*IQR
+max <- q3 + 1.5*IQR
+
+non.outlier <- basket[basket$TOV >= min, "TOV"]
+non.outlier <- non.outlier[non.outlier <= max]
+summary(non.outlier)
+basket$TOV <- ifelse(basket$TOV < min, 1.021, basket$TOV)
+basket$TOV <- ifelse(basket$TOV > max, 1.021, basket$TOV)
+```
+
+### Eksplorasi Peubah
+
+```{r}
+pl1 <- ggplot(basket, aes(x=TOV))
+pl1 <- pl1 + 
+  geom_bar(fill="red", alpha = 0.6, aes(fill=..count..))
+
+pl2 <- ggplot(basket, aes(y=TOV))
+
+pl2 <- pl2 + 
+  geom_boxplot(fill="red", alpha=0.6) + coord_flip() + theme_classic()
+
+
+pl3 <- ggplot(basket, aes(x=TOV, y=TARGET_5Yrs))
+
+# Boxplot Kolom TOV menurut kondisi basket
+pl3 <- pl3 + 
+  geom_boxplot(aes(fill=TARGET_5Yrs)) + coord_flip() + theme_classic()
+
+plot_grid(plotlist = list(pl1, pl2, pl3))
+```
+
+Hasil eksplorasi menunjukkan sebaran peubah Turnovers cenderung menjulur
+ke kanan (terdapat beberapa pemain yang memiliki nilai TOV lebih tinggi
+dari sebagian besar pemain lainnya) dan nilai rataan TOV pemain dengan
+karir panjang cenderung lebih besar.
+
+## CEK DATA ULANG
+
+```{r}
+str(basket)
+colSums(is.na(basket))
+colSums(basket==0)
+```
+
+Sudah tidak terdapat missing value dan peubah dengan banyak amatan
+bernilai nol.
+
+## Eksplorasi Peubah TARGET_5YR
+
+Outcome: 1 if career length \>= 5 yrs, 0 if \< 5 yrs
+
+```{r}
+prop.table(table(basket$TARGET_5Yrs))
+ggplot(basket, aes(TARGET_5Yrs, after_stat(count)))+ 
+  geom_bar(aes(fill = TARGET_5Yrs), position = "dodge")
+```
+
+Berdasarkan hasil eksplorasi di atas terlihat bahwa data tidak seimbang,
+yaitu pemain dengan karir panjang lebih panjang daripada pemain dengan
+karir pendek. Namun pada analisis ini tidak akan dilakukan penanganan
+data tidak seimbang.
+
+## Perbandingan sebaran peubah
+
+```{r}
+p1 <- ggplot(basket, aes(y=GP, x=TARGET_5Yrs, fill=TARGET_5Yrs)) +
+  geom_boxplot()
+p2 <- ggplot(basket, aes(y=MIN, x=TARGET_5Yrs, fill=TARGET_5Yrs)) +
+  geom_boxplot()
+p3 <- ggplot(basket, aes(y=PTS, x=TARGET_5Yrs, fill=TARGET_5Yrs)) +
+  geom_boxplot()
+p4 <- ggplot(basket, aes(y=FGM, x=TARGET_5Yrs, fill=TARGET_5Yrs)) +
+  geom_boxplot()
+p5 <- ggplot(basket, aes(y=FGA, x=TARGET_5Yrs, fill=TARGET_5Yrs)) +
+  geom_boxplot()
+p6 <- ggplot(basket, aes(y=`FG%`, x=TARGET_5Yrs, fill=TARGET_5Yrs)) +
+  geom_boxplot()
+p7 <- ggplot(basket, aes(y=FTM, x=TARGET_5Yrs, fill=TARGET_5Yrs)) +
+  geom_boxplot()
+p8 <- ggplot(basket, aes(y=`FT%`, x=TARGET_5Yrs, fill=TARGET_5Yrs)) +
+  geom_boxplot()
+p9 <- ggplot(basket, aes(y=OREB, x=TARGET_5Yrs, fill=TARGET_5Yrs)) +
+  geom_boxplot()
+p10 <- ggplot(basket, aes(y=DREB, x=TARGET_5Yrs, fill=TARGET_5Yrs)) +
+  geom_boxplot()
+p11 <- ggplot(basket, aes(y=REB, x=TARGET_5Yrs, fill=TARGET_5Yrs)) +
+  geom_boxplot()
+p12 <- ggplot(basket, aes(y=AST, x=TARGET_5Yrs, fill=TARGET_5Yrs)) +
+  geom_boxplot()
+p13 <- ggplot(basket, aes(y=STL, x=TARGET_5Yrs, fill=TARGET_5Yrs)) +
+  geom_boxplot()
+p14 <- ggplot(basket, aes(y=BLK, x=TARGET_5Yrs, fill=TARGET_5Yrs)) +
+  geom_boxplot()
+p15 <- ggplot(basket, aes(y=TOV, x=TARGET_5Yrs, fill=TARGET_5Yrs)) +
+  geom_boxplot()
+grid.arrange(p1, p2, p3, p4, nrow = 2, ncol = 2)
+grid.arrange(p5,p6,p7,p8, nrow = 2, ncol = 2)
+grid.arrange(p9,p10,p11,p12, nrow = 2, ncol = 2)
+grid.arrange(p13,p14,p15, nrow = 2, ncol = 2)
+```
+
+Perbadingan hasil eksplorasi tiap peubah prediktor terhadap peubah
+respon menunjukkan bahwa performa pemain basket yang baik berbanding
+lurus dengan lama karir pemain tersebut.
+
+# Pemodelan
+
+## Splitting data
+
+```{r}
+set.seed(12420246)
+in.train <- createDataPartition(as.factor(basket$TARGET_5Yrs), p=0.8, list=FALSE)
+basket.train <- basket[in.train,]
+basket.test <- basket[-in.train,]
+```
+
+Splitting data adalah metode untuk membagi dataset menjadi dua bagian,
+yaitu data training atau data latih dan data testing atau data uji. Pada
+latihan ini data dibagi menjadi 80% data training dan 20% data testing.
+
+## Seleksi Peubah
+
+Kemudian dilakukan seleksi peubah yang dapat menghasilkan model dengan
+nilai AIC terkecil.
+
+```{r}
+credit.glm0 <- glm(TARGET_5Yrs ~ ., family = binomial, basket.train)
+credit.glm.step <- step(credit.glm0)
+```
+
+Berikut merupakan hasil seleksi peubah, yaitu model dengan nilai AIC
+sebesar 1243.09
+
+```{r}
+summary(credit.glm.step)
+```
+
+## Final Model
+
+```{r}
+basket.final <- glm(formula=TARGET_5Yrs ~ GP + FGM + `FT%` + OREB + BLK, family = binomial,data=basket.train)
+summary(basket.final)
+```
+
+Kemudian disajikan final model yaitu model setelah dilakukan seleksi
+peubah. Terlihat bahwa hanya terdapat 5 peubah yang berpengaruh
+signifikan dari total 19 peubah yang digunakan pada data awal dengan
+nilai AIC yaitu 1243.09
+
+## Interpretasi Model
+
+![](C:/Users/Lenovo/Downloads/WhatsApp%20Image%202023-02-13%20at%2011.11.17.jpeg)
+
+## Uji Simultan
+
+𝐻0: 𝛽1 = 𝛽2 = 𝛽3 = 0
+
+𝐻1: minimal ada satu 𝛽i ≠ 0
+
+```{r}
+anova(update(basket.final, ~1), basket.final, test="Chisq")
+```
+
+Hasil uji simultan di atas menunjukkan bahwa p-value \< ∝ (0.05)
+sehingga Tolak H0. Artinya, cukup bukti untuk menyatakan bahwa minimal
+ada satu peubah bebas yang berpengaruh signifikan terhadap lamanya karir
+seorang atlet pada taraf nyata 5%.
+
+## Uji Parsial (Uji Wald)
+
+```{r}
+Anova(basket.final, type="II", test="Wald")
+```
+
+Berdasarkan hasil Uji Wald, dapat terlihat bahwa ketiga peubah bebas
+memiliki p-value \< ∝ (0.05) sehingga Tolak H0. Artinya, peubah GP, FGM,
+FT%, OREB, dan BLK signifikan terhadap lamanya karir seorang atlet.
+
+# Evaluasi Model
+
+Evaluasi pada model regresi logistik dilakukan menggunakan *confusion
+matrix*.
+
+```{r}
+fit.final <- fitted.values(basket.final)
+pred.final <- ifelse(fit.final>=0.5,1,0)
+tab <- table(basket.train$TARGET_5Yrs,pred.final, dnn = c("Truth", "Predicted"))
+tab
+acc <- sum(diag(tab))/sum(tab)
+acc
+```
+
+*Accuracy* menggambarkan seberapa akurat model dapat mengklasifikasikan
+dengan benar. Dengan kata lain, *accuracy* merupakan tingkat kedekatan
+nilai prediksi dengan nilai aktualnya. Pada model ini, nilai *accuracy*
+yang diperoleh adalah sebesar 70.64%.
+
+```{r}
+pdata=predict(basket.final,newdata=basket.train,type="response")
+y_prediksi<-ifelse(pdata<0.5,0,1)
+y_aktual<-basket.train$TARGET_5Yrs
+klf=table(y_aktual,y_prediksi)
+accuracy=(klf[1,1]+klf[2,2])/sum(klf)*100
+sensitivity= klf[2,2]/sum(klf[2,])*100
+specificity= klf[1,1]/sum(klf[1,])*100 
+fprate=klf[2,1]/(klf[2,1]+klf[1,1])*100
+AUC=(100+sensitivity-fprate)/2 
+performa=data.frame(accuracy,sensitivity,specificity,AUC)
+
+klf
+performa
+```
+
+Tabel di atas berisi nilai performa model yang ditunjukkan oleh nilai
+*accuracy*, *sensitivity*, *specificity*, dan AUC.
+
+-   *Sensitivity* merupakan rasio prediksi benar positif dengan
+    keseluruhan data positif.
+
+-   *Specificity* merupakan rasio prediksi benar negatif dengan
+    keseluruhan data negatif.
+
+-   AUC (*Area under the curve*) memberikan informasi seberapa besar
+    kemampuan model dalam mengklasifikasi. Semakin tinggi nilai AUC,
+    artinya semakin baik model dalam memprediksi 0 sebagai 0 dan 1
+    sebagai 1.
+
+## ROC PLOT
+
+Kurva ROC merupakan kurva probabilitas yang menunjukkan kinerja model
+klasifikasi di semua ambang klasifikasi.
+
+```{r}
+library(ROCR)
+pred<- prediction(predict.glm(basket.final,basket.test),basket.test$TARGET_5Yrs)
+perf <- performance(pred,"tpr","fpr")
+plot(perf)
+```

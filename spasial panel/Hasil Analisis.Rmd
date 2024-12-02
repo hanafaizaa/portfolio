@@ -1,0 +1,466 @@
+---
+title: "Hasil Analisis"
+author: "Hana Faiza Amalina"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::downcute:
+    self_contained: true
+    default_style: "dark"
+    downcute_theme: "default"
+---
+
+```{=html}
+<style>
+body {
+text-align: justify}
+</style>
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r warning=FALSE, include=FALSE}
+library(dplyr)
+library(tidyr)
+library(sf)
+library(ggplot2)
+library(RColorBrewer)
+library(readxl)
+library(spdep)
+library(raster)
+library(sp)
+library(car)
+library(lmtest)
+library(dplyr)
+library(splm)
+library(plm)
+library(spatialreg)
+library(tseries)
+library(randtests)
+library(tidyr)
+```
+
+# Data
+
+```{r}
+data=read_excel("C:\\Users\\hanfai\\skripsi\\semhas\\hasil\\data.xlsx", sheet = "datafix_2")
+head(data)
+```
+
+# 1. Eksplorasi Data
+
+```{r}
+setwd("C:\\Users\\hanfai\\skripsi\\semhas\\hasil")
+data.2018=data %>% filter(Tahun==2018)
+data.2019=data %>% filter(Tahun==2019)
+data.2020=data %>% filter(Tahun==2020)
+data.2021=data %>% filter(Tahun==2021)
+data.2022=data %>% filter(Tahun==2022)
+
+data2=cbind(data.2018[,6:16],data.2019[,6:16],data.2020[,6:16],
+            data.2021[,6:16],data.2022[,6:16])
+
+#memberi nama kolom
+nama=colnames(data.2020[,6:16])
+nama2=c(paste0(nama,"_2018"),paste0(nama,"_2019"),paste0(nama,"_2020"),
+        paste0(nama,"_2021"),paste0(nama,"_2022"))
+colnames(data2)<-nama2
+data2$ID=data$ID[1:35]
+head(data2)
+
+#import SHP
+shp.banten.jabar=read_sf("SHP Banten Jabar Kabkot/banten jabar kabkot.shp")
+gabung.banten.jabar=left_join(shp.banten.jabar,data2,by="ID")
+ 
+nama=gabung.banten.jabar$KABUPATEN[1:35]
+nama2=as.data.frame(matrix(nama,36,1))
+```
+
+```{r}
+# Peta tematik
+varY <- gabung.banten.jabar %>% 
+  dplyr::select("TPT_2018","TPT_2019","TPT_2020","TPT_2021","TPT_2022", geometry) %>% 
+  tidyr::gather(VAR, TPT1, -geometry)%>%
+  mutate(TPT = cut_number(TPT1, n = 5,dig.lab=5 ))
+
+ggplot() + 
+  geom_sf(data = varY, aes(fill = TPT)) + 
+  facet_wrap(~VAR, ncol = 3) +
+  scale_fill_brewer(type = "seq", palette = "YlOrRd")
+```
+```{r}
+# Boxplot masing-masing peubah
+boxplot(data$TPT, main = "Y")
+
+par(mfrow = c(2,3))
+boxplot(data2$TPT_2018, main = "TPT 2018")
+boxplot(data2$TPT_2019, main = "TPT 2019")
+boxplot(data2$TPT_2020, main = "TPT 2020")
+boxplot(data2$TPT_2021, main = "TPT 2021")
+boxplot(data2$TPT_2022, main = "TPT 2022")
+
+par(mfrow = c(2,5))
+boxplot(data$UMK, main = "X1")
+boxplot(data$TPAK, main = "X2")
+boxplot(data$DR, main = "X3")
+boxplot(data$KP, main = "X4")
+boxplot(data$PPM, main = "X5")
+boxplot(data$RLS, main = "X6")
+boxplot(data$EG, main = "X7")
+boxplot(data$AHH, main = "X8")
+boxplot(data$PPS, main = "X9")
+boxplot(data$PMA, main = "X10")
+```
+
+# 2. Analisis Data Panel
+
+```{r}
+#scaling
+data_scaled <- scale(data[,6:16])
+datafix <- cbind(data[,1:5], data_scaled)
+head(datafix)
+```
+
+```{r}
+#multikol
+reg <- lm(TPT ~ UMK + TPAK + DR + KP + PPM + RLS + EG + AHH + PPS + PMA, data = datafix)
+vif(reg)
+```
+
+Berdasarkan nilai VIF yang dihasilkan, seluruh peubah penjelas memiliki nilai `VIF < 10`. Oleh karena itu, tidak ada peubah penjelas yang diseleksi pada tahap ini.
+
+```{r}
+#MOdel Random (REM)
+rem <- plm(TPT ~ UMK + TPAK + DR + KP + PPM + RLS + EG + AHH + PPS + PMA,
+           data=datafix, model="random", index = c("ID","Tahun"))
+
+#Model Fixed (FEM)
+fem <- plm(TPT ~ UMK + TPAK + DR + KP + PPM + RLS + EG + AHH + PPS + PMA,
+           data=datafix, model="within", index = c("ID","Tahun"))
+
+#Model Gabungan (CEM)
+cem <- plm(TPT ~ UMK + TPAK + DR + KP + PPM + RLS + EG + AHH + PPS + PMA,
+           data=datafix,model="pooling",index = c("ID","Tahun"))
+```
+
+```{r}
+#UJI PEMILIHAN MODEL
+### uji chow ###
+pFtest(fem,cem) #model FEM
+
+### uji hausman ###
+phtest(fem,rem) #model FEM
+```
+
+Hasil uji Chow dan uji Hausman memberikan `p-value < 0.05` sehingga H0 ditolak. Artinya, ada cukup bukti untuk menyatakan bahwa model regresi panel yang terpilih adalah model dengan pengaruh tetap (FEM) pada taraf nyata 5%.
+
+```{r}
+plmtest(fem, effect = "twoways", type = "bp")
+plmtest(fem, effect = "individual", type = "bp")
+plmtest(fem, effect = "time", type = "bp")
+```
+```{r}
+summary(fem)
+```
+
+# 3. Menyusun Matriks Pembobot Spasial
+
+```{r}
+longlat=datafix[1:35,3:4]
+longlat2=datafix[,3:4]
+```
+
+## Pembobot spasial untuk pemodelan
+
+```{r warning=FALSE}
+#k-NN
+knn <- knearneigh(longlat, k=3)
+nb <- knn2nb(knn, sym = TRUE)
+w_knn <- nb2listw(nb)
+
+#invers
+d <- dist(longlat, method = "euclidean", diag = T, upper = T)
+w1 <- as.matrix(1/d)
+diag(w1) <- 0
+w_inv <- mat2listw(w1,style = "W")
+
+#exponensial
+w2 <- as.matrix(exp(-d))
+diag(w2) <- 0
+w_exp <- mat2listw(w2,style = "W")
+```
+
+## Pembobot spasial untuk pengujian
+
+```{r warning=FALSE}
+#k-NN
+knn2 <- knearneigh(longlat2, k=3)
+nb2 <- knn2nb(knn2, sym = TRUE)
+w_knn2 <- nb2listw(nb2)
+
+#invers
+d2 <- dist(longlat2, method = "euclidean", diag = T, upper = T)
+w1.2 <- as.matrix(1/d2)
+w1.2[which(!is.finite(w1.2))] <- 0
+w_inv2 <- mat2listw(w1.2,style = "W")
+
+#exponensial
+w2.2 <- as.matrix(exp(-d2))
+diag(w2.2) <- 0
+w_exp2 <- mat2listw(w2.2,style = "W")
+```
+
+# 4. Autokorelasi Spasial
+
+```{r}
+moran_I_knn <- moran.test(datafix$TPT, listw = w_knn2)
+moran_I_knn
+moran_I_inv <- moran.test(datafix$TPT, listw = w_inv2)
+moran_I_inv
+moran_I_exp <- moran.test(datafix$TPT, listw = w_exp2)
+moran_I_exp
+```
+
+Hasil pengujian autokorelasi spasial menggunakan indeks Moran dilakukan menggunakan ketiga pembobot spasial. Ketiga pembobot spasial tersebut memberikan hasil yang sama, yaitu `p-value < 0.05` sehingga H0 ditolak. Artinya, ada cukup bukti untuk menyatakan bahwa terdapat autokorelasi spasial dalam data pada taraf nyata 5%.
+
+# 5. Keragaman Spasial
+
+```{r}
+coordinates(datafix) <- c("Long", "Lat")
+bp_test <- bptest(fem, ~ coordinates(datafix)) 
+bp_test
+```
+
+Hasil uji Breusch-Pagan memberikan `p-value = 0.1745` sehingga H0 tidak ditolak. Artinya, tidak ada cukup bukti untuk menyatakan bahwa terdapat keragaman antar lokasi. Dalam konteks penelitian ini, dapat dikatakan bahwa tingkat pengangguran terbuka Provinsi Banten dengan Provinsi Jawa Barat cukup berbeda, namun tingkat pengangguran terbuka antar kab/kota di masing-masing provinsi mungkin cukup mirip atau tidak berbeda secara signifikan.
+
+# 6. Uji Pengganda Lagrange
+
+```{r}
+lm_test_knn <- lm.LMtests(reg, listw = w_knn2, test="all")
+summary(lm_test_knn)
+
+lm_test_inv <- lm.LMtests(reg, listw = w_inv2, test="all")
+summary(lm_test_inv)
+
+lm_test_exp <- lm.LMtests(reg, listw = w_exp2, test="all")
+summary(lm_test_exp)
+```
+
+Dengan menggunakan ketiga pembobot spasial, hanya pembobot spasial k-NN yang memberikan hasil yang signifikan. Hasil uji pengganda Lagrange dengan pembobot spasial k-NN menunjukkan bahwa terdapat keragaman pada peubah penjelas dan pada galat. Oleh karena itu, model yang dibangun adalah spatial durbin model (SDM) dengan pembobot spasial k-NN.
+
+# 7. Analisis Spasial Panel
+
+## Spatial Durbin Model
+```{r warning=FALSE}
+datafix <- cbind(data[,1:5], data_scaled)
+sdm <- spml(TPT ~ UMK + TPAK + DR + KP + PPM + RLS + EG + AHH + PPS+ PMA, data = datafix, listw = w_knn, 
+            model = "within", effect = "individual", spatial.error = "b", spatial.lag = "b")
+summary(sdm)
+rsquare <- 1-var(sdm$resid)/var(datafix$TPT)
+rsquare
+
+#Normalitas sisaan 
+err <- sdm$residuals
+ks.test(err, "pnorm", mean = mean(err), sd = sd(err))
+qqnorm(err)
+qqline(err)
+
+#Kehomogenan ragam 
+error <- abs(err)
+datafix$error <- error
+sdm.glejser <- lm(error ~ UMK + TPAK + DR + KP + PPM + RLS + EG + AHH + PPS + PMA, data = datafix)
+summary(sdm.glejser)
+
+#Kebebasan sisaan 
+runs.test(err)
+```
+
+## Robust SDM
+```{r}
+sdm.residuals=sdm$residuals
+moran.plot(sdm.residuals, w_knn2)
+```
+
+```{r}
+#Robust SDM M_EStimator
+robust.SDM=function(X,y,bobot,rho)
+{
+  n=length(y)
+  k=ncol(X)
+  bo=rep(1,n)
+  X=cbind(bo,X)
+  X=as.matrix(X)
+  p=k+1
+  c=4.685
+  I=diag(rep(1,n))
+  W=rho*bobot
+  W=as.matrix(W)
+  V=I-W
+  yb=V%*%y
+  
+  #Step 1: Menghitung Nilai Delta
+  delta_awal=solve(crossprod(X,X),tol=1e-20)%*%t(X)%*%yb
+  cat("Nilai delta awal=\n")
+  print(delta_awal)
+  
+  #Step 2: Menghitung Residual
+  yhat=W%*%y+X%*%delta_awal
+  residual=y-yhat
+  
+  #Step 3: Proses Iterasi
+  s=median(abs(residual-median(residual)))/0.6745
+  u=(residual/s)
+  u_absolut=abs(u)
+  w=rep(0,n)
+  for(j in 1:n){
+    if (u_absolut[j]>c) {w[j]=0}
+    else {w[j]=(1-(u[j]/c)^2)^2}
+  }
+  Wr=diag(w,n)
+  wjumlah=sum(diag(Wr))
+  WX=Wr%*%X
+  delta=solve(crossprod(X,WX),tol=1e-20)%*%t(X)%*%Wr%*%yb
+  a=0
+  #Iterasi Selanjutnya
+  repeat{
+    con=abs(delta-delta_awal)/abs(delta)
+    if(con[1,]<=0.01 && con[2,]<=0.01 && con[3,]<=0.01 &&
+       con[4,]<=0.01 && con[5,]<=0.01 && con[6,]<=0.01
+       && con[7,]<=0.01 && con[8,]<=0.01 && con[9,]<=0.01 &&
+       con[10,]<=0.01) {
+      cat("\n")
+      cat("\n")
+      cat("====================ITERASI
+SELESAI================\n")
+      break}
+    else {
+      a=a+1
+      cat("\n")
+      cat("\n")
+      cat("*********************ITERASI",a, "*********************\n")
+      M<-matrix(c(residual,u_absolut,w),nrow=n)
+      cat("\n--------------------------------------------\n")
+      cat(" No residual |u| w")
+      cat("\n--------------------------------------------\n")
+      print(M)
+      
+      #Step 4: Menghitung Nilai Delta Iterasi Selanjutnya
+      cat("...................................................\n")
+      cat("Nilai delta=\n")
+      print(delta)
+      #Menghitung Nilai Prediksi dan Residual
+      delta_awal=delta
+      ytopi=W%*%y+X%*%delta_awal
+      residual=y-ytopi
+      
+      s=median(abs(residual-median(residual)))/0.6745
+      u=(residual/s)
+      u_absolut=abs(u)
+      w=rep(0,n)
+      for(j in 1:n){
+        if (u_absolut[j]>c) {w[j]=0}
+        else {w[j]=(1-(u[j]/c)^2)^2}
+      }
+      Wr=diag(w,n)
+      wjumlah=sum(diag(Wr))
+      WX=Wr%*%X
+      delta=solve(crossprod(X,WX),tol=1e-20)%*%t(X)%*%Wr%*%yb
+    }
+  }
+  
+  #Step 5: Menghitung MSE
+  v=rep(0,n)
+  for (i in 1:n) {
+    if (w[i]==0) {v[i]=1}
+    else {v[i]=0}
+  }
+  bobot_nol=sum(v)
+  H=X%*%solve(crossprod(X,WX),tol=1e-20)%*%t(X)%*%Wr
+  SSE=t(yb)%*%t(I-H)%*%Wr%*%(I-H)%*%yb
+  db=n-k-1-bobot_nol
+  MSE=SSE/db
+  cat("...................................................\n")
+  cat("MSE\n")
+  print(MSE)
+  
+  #Step 6: Menghitung Rsquare
+  SST=0
+  wy=0
+  for(i in 1:n){
+    wy=wy+(w[i]*y[i])}
+  ywbar=wy/wjumlah
+  for(i in 1:n){
+    SST=SST+(w[i]*(y[i]-ywbar)^2)
+  }
+  Rsquare=1-(SSE/SST)
+  cat("...................................................\n")
+  cat("Rsquare\n")
+  print(Rsquare)
+  
+  #Step 7: Menghitung Adjusted Rsquare
+  Adjusted_Rsquare=1-(((n-1)/(n-k-1))*(1-Rsquare))
+  cat("...................................................\n")
+  cat("Adjusted Rsquare\n")
+  print(Adjusted_Rsquare)
+  
+  #Step 8: Uji Kecocokan Model
+  SSR=SST-SSE
+  MSR=SSR/k
+  Fhit=MSR/MSE
+  sig_F=1-pf(Fhit,k,db)
+  F_hitung=cbind(Fhit,sig_F)
+  colnames(F_hitung)=c("F_hit","sig")
+  cat("...................................................\n")
+  cat("F hitung\n")
+  print(F_hitung)
+  
+  #Step 9: Uji Signifikansi Parameter
+  Wy=bobot%*%y
+  Z=cbind(Wy,X)
+  WZ=Wr%*%Z
+  var_delta=diag(solve(crossprod(Z,WZ),tol=1e-20))*MSE
+  Zb=data.frame(rho,t(delta_awal))
+  par=t(Zb)
+  wald=par^2/var_delta
+  sig_wald=1-pchisq(wald,1)
+  wald_hitung=cbind(par,var_delta,wald,sig_wald)
+  colnames(wald_hitung)=c("delta","var_delta","Wald","Sig.")
+  cat("...................................................\n")
+  cat("Wald hitung\n")
+  print(wald_hitung)
+  #Simpan Hasil
+  return(list(Koefisien=par,Uji_Wald=wald_hitung,
+              R.Square=Rsquare,Adj.RSq=Adjusted_Rsquare,
+              Uji.F = F_hitung, MSE = MSE,
+              Residuals=residual,Pred=y-residual))
+}
+
+y <- datafix[,6]
+x <- datafix[,(7:16)]
+bobot <- listw2mat(w_knn2)
+lagX <- create_WX(x, w_knn2, prefix = "lag")
+
+x_lag <- cbind(x, lagX)
+```
+```{r}
+rsdm <- robust.SDM(x_lag, y, bobot, rho = 0.604461)
+rsdm
+```
+
+
+```{r}
+#Normalitas sisaan 
+res <- rsdm$Residuals
+ks.test(res, "pnorm", mean = mean(res), sd = sd(res))
+qqnorm(res)
+qqline(res)
+
+#Kehomogenan ragam 
+err <- abs(res)
+datafix$err <- err
+rsdm.glejser <- lm(err ~ UMK + TPAK + DR + KP + PPM + RLS + EG + AHH + PPS + PMA, data = datafix)
+summary(rsdm.glejser)
+
+#Kebebasan sisaan 
+runs.test(res)
+```

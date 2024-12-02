@@ -1,0 +1,112 @@
+---
+title: "Metode Simulasi dan Resampling"
+author: "Hana Faiza Amalina"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Pembangkitan Gugus Data
+
+Terdapat empat gugus data yang akan dibangkitkan, yaitu:
+
+a.  Data dari sebaran simetris
+b.  50% dari sebaran normal +50% dari sebaran chisquare
+c.  50% sebaran chisquare dengan parameter a + 50% sebaran chisquare dengan parameter b
+d.  25% chisquare dengan parameter a + 25% chisquare dengan parameter b + 25% normal dengan parameter a + 25% normal dengan parameter b
+
+```{r}
+set.seed(123)
+N<-1000
+dataA<-runif(N,5,10)
+dataB<-c(rnorm(N/2), rchisq(N/2, df = 5))
+dataC<-c(rchisq(N/2, df = 5), rchisq(N/2, df = 10))
+dataD<-c(rchisq(N/4, df = 5), rchisq(N/4, df = 10), rnorm(N/4, mean = 5), rnorm(N/4, mean = 10))
+```
+```{r}
+par (mfrow = c(2,2))
+hist(dataA); hist(dataB);hist(dataC);hist(dataD)
+```
+
+Histogram di atas menunjukkan bahwa gugus data A memiliki bentuk yang simetris, sedangkan gugus data lainnya memiliki histogram yang menjulur ke kanan.
+
+## Pengambilan sampel dengan n = 4, 12, 20, 60, 100 pada masing-masing gugus data
+
+```{r}
+rataan.sample<-function(data,n,r=50){
+  set.seed(123);seed<-round(runif(r,300,900))
+  xbar.sample<-matrix(data = NA, nrow = r, ncol = 1)
+  for(i in 1:r){
+    set.seed(seed[i])
+    dt.sample<-sample(data, n)
+    xbar.sample[i,1]<-mean(dt.sample)
+    i=i+1
+  }
+  return(xbar.sample)
+}
+```
+
+```{r}
+dataA.4<-rataan.sample(dataA,4)
+dataA.12<-rataan.sample(dataA,12)
+dataA.20<-rataan.sample(dataA,20)
+dataA.60<-rataan.sample(dataA,60)
+dataA.100<-rataan.sample(dataA,100)
+
+dataB.4<-rataan.sample(dataB,4)
+dataB.12<-rataan.sample(dataB,12)
+dataB.20<-rataan.sample(dataB,20)
+dataB.60<-rataan.sample(dataB,60)
+dataB.100<-rataan.sample(dataB,100)
+
+dataC.4<-rataan.sample(dataC,4)
+dataC.12<-rataan.sample(dataC,12)
+dataC.20<-rataan.sample(dataC,20)
+dataC.60<-rataan.sample(dataC,60)
+dataC.100<-rataan.sample(dataC,100)
+
+dataD.4<-rataan.sample(dataD,4)
+dataD.12<-rataan.sample(dataD,12)
+dataD.20<-rataan.sample(dataD,20)
+dataD.60<-rataan.sample(dataD,60)
+dataD.100<-rataan.sample(dataD,100)
+```
+
+## Bentuk sebaran rataan dari masing-masing gugus data
+### Gugus Data A
+```{r}
+par(mfrow = c(2,3))
+hist(dataA.4);hist(dataA.12);hist(dataA.20);hist(dataA.60);hist(dataA.100)
+```
+
+Gugus data A memiliki bentuk histogram yang simetris ketika n = 12. Ketika n = 4, histogram yang terbentuk adalah histogram yang menjulur ke kiri. 
+
+### Gugus Data B
+```{r}
+par(mfrow = c(2,3))
+hist(dataB.4);hist(dataB.12);hist(dataB.20);hist(dataB.60);hist(dataB.100)
+```
+
+Gugus data B memiliki bentuk histogram yang simetris ketika n = 60. Ketika n > 60, histogram yang terbentuk masih mengikuti bentuk sebaran datanya, yakni menjulur ke kanan. 
+
+### Gugus Data C
+```{r}
+par(mfrow = c(2,3))
+hist(dataC.4);hist(dataC.12);hist(dataC.20);hist(dataC.60);hist(dataC.100)
+```
+
+Gugus data C memiliki bentuk histogram yang simetris ketika n = 20. Namun, ketika n diperbesar, bentuk histogram menjadi cenderung menjulur ke kanan. 
+
+### Gugus Data D
+```{r}
+par(mfrow = c(2,3))
+hist(dataD.4);hist(dataD.12);hist(dataD.20);hist(dataD.60);hist(dataD.100)
+```
+
+Gugus data D memiliki bentuk histogram yang simetris ketika n = 100. Ketika n > 100, histogram yang terbentuk masih cenderung menjulur ke kanan. 
+
+## Kesimpulan
+Populasi dengan sebaran yang simetris dapat memiliki sebaran rataan yang simetris bahkan dengan n yang kecil. 

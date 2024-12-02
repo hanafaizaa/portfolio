@@ -1,0 +1,221 @@
+---
+title: "Analisis Gerombol Pada Data Pengunjung Mal"
+author: "Hana Faiza Amalina"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+---
+
+## Pendahuluan
+### Latar Belakang
+Salah satu jenis algoritma pada Machine Learning adalah Unsupervised learning. Algoritma ini biasanya digunakan untuk mempelajari suatu data berdasarkan kedekatannya atau biasa disebut analisis gerombol. Analisis gerombol merupakan metode yang menggabungkan beberapa individu ke dalam kelompok-kelompok berdasarkan kemiripan antar objek, sehingga objek dalam kelompok lebih mirip dibandingkan dengan objek antar kelompok. Pada analisis ini, penentuan gerombol akan dilakukan melalui dua metode, yaitu analisis gerombol tak berhierarki (K-means) dan analisis gerombol berhierarki.
+
+### Data
+Data yang digunakan pada analisis ini adalah data pengunjung suatu mal. Data terdiri atas lima peubah dengan 200 amatan. 
+
+1. ```Customer ID```: Nomor identitas pelanggan
+
+2. ```Gender```: Jenis kelamin pelanggan
+
+3. ```Age```: Usia pelanggan
+
+4. ```Annual Income```: Pendapatan tahunan pelanggan
+
+5. ```Spending Score```: Skor yang diberikan kepada pelanggan oleh pihak mal berdasarkan uang yang dibelanjakan dan perilaku pelanggan
+
+Tujuan analisis ini adalah membuat kelompok berdasarkan usia, pendapatan tahunan, dan skor pelanggan untuk strategi marketing.
+
+### Library
+Library yang digunakan dalam analisis ini adalah sebagai berikut:
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(factoextra)
+```
+
+## Hasil dan Pembahasan
+### Input Data
+```{r}
+data <- read.csv("C:/Users/hanfai/portfolio/clustering/Data Mall_Customer.csv", sep = ";")
+head(data)
+```
+
+### Preprocessing Data
+```{r}
+str(data)
+```
+
+#### Mengubah tipe data
+Untuk keperluan analisis, tipe data pada peubah ```Gender``` akan diubah menjadi faktor.
+```{r}
+colnames(data)[2] = "Gender" 
+data$Gender <- as.factor(data$Gender)
+str(data)
+```
+
+#### Standardisasi
+Penggerombolan data erat kaitannya dengan jarak sehingga standardisasi perlu dilakukan. Standardisasi dilakukan menggunakan z-score.
+```{r}
+dt <- data[,c(4,5)]
+summary(dt)
+
+dt <- scale(dt)
+summary(dt)
+```
+
+### Eksplorasi Data
+Langkah pertama yang harus dilakukan sebelum mulai menganalisis data adalah mengenal data itu sendiri dengan melakukan eksplorasi. Pada data ini, eksplorasi akan dilakukan melalui visualisasi data.
+
+#### Jenis kelamin
+```{r}
+ggplot(data) +
+  aes(x = Gender) +
+  geom_bar() +
+  scale_fill_viridis_c(option = "magma", direction = 1) +
+  labs(
+    x = "Jenis Kelamin",
+    y = "Jumlah Pengunjung",
+    title = "Distribusi Jenis Kelamin Pengunjung Mal",
+    fill = "Gender"
+  ) +
+  theme_bw()
+```
+
+Berdasarkan diagram batang di atas, diperoleh informasi bahwa pengunjung mal lebih banyak perempuan dari pada laki-laki.
+
+#### Aktivitas usia berdasarkan jenis kelamin
+```{r}
+ggplot(data, 
+       aes( x = Age, fill = Gender)) + 
+  geom_density(alpha = 0.4)
+```
+
+Berdasarkan plot densitas di atas, diperoleh informasi bahwa rentang usia pengunjung adalah 18 sampai 70 tahun. Selain itu, terlihat ada aktivitas yang kuat pada rentang usia 25 sampai 35 tahun pada kedua jenis kelamin. Pada jenis kelamin perempuan, ada aktivitas kuat lainnya pada rentang usia 45 sampai 50 tahun. Kemudian, kurva pada kedua jenis kelamin semakin menurun ketika usianya semakin bertambah. 
+
+### Analisis Gerombol Tak Berhierarki: K-means
+Metode K-means adalah pendekatan yang sederhana untuk membagi kumpulan data ke dalam K gerombol yang berbeda. 
+
+#### Menentukan K optimum
+K optimum ditentukan berdasarkan within sum square. Nilai K yang akan dipilih adalah nilai K yang ketika K ditambah, penurunan total WSS tidak terlalu drastis.
+```{r}
+fviz_nbclust(dt,
+             FUNcluster = kmeans,
+             method = "wss")
+```
+
+Nilai K yang dipilih adalah 5.
+
+#### Membentuk gerombol
+```{r}
+RNGkind(sample.kind = "Rounding")
+set.seed(28)
+data.kmeans <- kmeans(dt, centers = 5)
+data.kmeans
+```
+```{r}
+fviz_cluster(data.kmeans, data = dt)
+```
+
+#### Interpretasi tiap gerombol
+```{r}
+data$Cluster <- as.factor(data.kmeans$cluster)
+```
+```{r warning=FALSE}
+data %>%
+  group_by(Cluster) %>%
+  summarise_all(.funs = "mean") %>%
+  select(-Gender, -CustomerID)
+```
+
++ Gerombol 1 berisi pelanggan dengan rata-rata usia 25 tahun, rata-rata pendapatan tahunan rendah, dan rata-rata skor penilaian tinggi.
+
++ Gerombol 2 berisi pelanggan dengan rata-rata usia 45 tahun, rata-rata pendapatan tahunan rendah, dan rata-rata skor penilaian rendah.
+
++ Gerombol 3 berisi pelanggan dengan rata-rata usia 42 tahun, rata-rata pendapatan tahunan sedang, dan rata-rata skor penilaian sedang.
+
++ Gerombol 4 berisi pelanggan dengan rata-rata usia 41 tahun, rata-rata pendapatan tahunan tinggi, dan rata-rata skor penilaian rendah.
+
++ Gerombol 5 berisi pelanggan dengan rata-rata usia 32 tahun, rata-rata pendapatan tahunan tinggi, dan rata-rata skor penilaian tinggi.
+
+### Analisis Gerombol Berhierarki
+Penggerombolan berhierarki merupakan alternatif yang tidak mengharuskan memilih jumlah gerombol di awal.
+
+#### Pemilihan banyaknya gerombol
+##### Complete Linkage
+```{r}
+fviz_nbclust(dt, FUNcluster = hcut, 
+             method = "silhouette", hc_method = "complete",
+             hc_metric="euclidean")
+```
+
+Dengan menggunakan complete linkage, jumlah gerombol optimal yang diperoleh adalah 5.
+
+##### Average Linkage
+```{r}
+fviz_nbclust(dt, FUNcluster = hcut, 
+             method = "silhouette", hc_method = "average",
+             hc_metric="euclidean")
+```
+
+Dengan menggunakan average linkage, jumlah gerombol optimal yang diperoleh adalah 7.
+
+##### Centroid Linkage
+```{r}
+fviz_nbclust(dt, FUNcluster = hcut, 
+             method = "silhouette", hc_method = "centroid",
+             hc_metric="euclidean")
+```
+
+Dengan menggunakan centroid linkage, jumlah gerombol optimal yang diperoleh adalah 7.
+
+##### Single Linkage
+```{r}
+fviz_nbclust(dt, FUNcluster = hcut, 
+             method = "silhouette", hc_method = "single",
+             hc_metric="euclidean")
+```
+
+Dengan menggunakan single linkage, jumlah gerombol optimal yang diperoleh adalah 2.
+
+Berdasarkan keempat metode yang sudah dicoba, dua di antaranya memperoleh 7 sebagai jumlah gerombol yang optimal.
+
+#### Visualisasi gerombol
+##### Dendogram
+```{r warning=FALSE}
+fviz_dend(hclust(dist(dt, method = "euclidean"), 
+                 method = "average"))
+```
+
+##### Plot gerombol
+```{r}
+hc.data <- eclust(dt, FUNcluster = "hclust", k=7, hc_method
+                  = "average",hc_metric = "euclidean",
+                  graph = F)
+fviz_cluster(hc.data)
+```
+
+#### Interpretasi tiap gerombol
+```{r}
+data.hc <- data[,-c(1,2,6)]
+aggregate(data.hc, by=list(cluster=hc.data$cluster), FUN =
+          mean)
+```
+
++ Gerombol 1 berisi pelanggan dengan rata-rata usia 45 tahun, rata-rata pendapatan tahunan rendah, dan rata-rata skor penilaian rendah.
+
++ Gerombol 2 berisi pelanggan dengan rata-rata usia 25 tahun, rata-rata pendapatan tahunan rendah, dan rata-rata skor penilaian tinggi.
+
++ Gerombol 3 berisi pelanggan dengan rata-rata usia 43 tahun, rata-rata pendapatan tahunan sedang, dan rata-rata skor penilaian sedang.
+
++ Gerombol 4 berisi pelanggan dengan rata-rata usia 33 tahun, rata-rata pendapatan tahunan tinggi, dan rata-rata skor penilaian tinggi.
+
++ Gerombol 5 berisi pelanggan dengan rata-rata usia 41 tahun, rata-rata pendapatan tahunan tinggi, dan rata-rata skor penilaian tinggi.
+
++ Gerombol 6 berisi pelanggan dengan rata-rata usia 39 tahun, rata-rata pendapatan tahunan tinggi, dan rata-rata skor penilaian rendah.
+
++ Gerombol 7 berisi pelanggan dengan rata-rata usia 32 tahun, rata-rata pendapatan tahunan tinggi, dan rata-rata skor penilaian tinggi.
+
+## Kesimpulan
+Berdasarkan gerombol-gerombol yang sudah dibuat, pihak otoritas mal dapat membuat pendekatan pemasaran yang lebih strategis dan tepat sasaran. Sebagai contoh, terdapat pelanggan dengan pendapatan tahunan tinggi, namun skor penilaiannya rendah. Pihak otoritas mal dapat menggali gagasan untuk mengangkat minat pelanggan tersebut.

@@ -1,0 +1,228 @@
+---
+title: "Tugas Individu 1 MPDW"
+author: "Hana Faiza Amalina"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Preparation
+Data yang akan digunakan untuk analisis regresi deret waktu adalah data 'Indeks Pembangunan Manusia di Provinsi Banten Tahun 2010-2021'. 
+
+```{r}
+lapply(c("dplyr","readxl","forecast","TTR","tseries",
+         "lmtest","orcutt","HoRM"),
+       library, character.only=T)
+```
+```{r}
+IPM <- read_excel("C:/Users/hanfai/portfolio/time series/data time series.xlsx", sheet = 3)
+View(IPM)
+```
+
+## Eksplorasi Data
+```{r}
+x <- IPM$Tahun
+y <- IPM$IPM
+
+plot(x,y,pch = 20, col = "blue", main = "Scatter Plot X vs Y",
+     ylab = "Nilai Peubah Y", xlab = "Nilai Peubah X")
+cor(x,y)
+```
+Berdasarkan plot korelasi di atas, terdapat hubungan positif antara peubah tahun dan IPM. Nilai korelasi antara kedua peubah ini adalah sebesar 0.99.
+
+## Model regresi Deret Waktu
+```{r}
+model <- lm(y~x, data=IPM)
+summary(model)
+```
+Persamaan regresi yang diperoleh adalah y = -897.55 + 0.48x. Uji-t parsial untuk intersep dan peubah x menunjukkan bahwa keduanya berpengaruh pada taraf nyata 5%. Hasil ini juga sejalan dengan p-value yang diperoleh pada uji F, yaitu kurang dari taraf nyata 5%. Sehingga dapat disimpulkan bahwa terdapat minimal satu variabel yang berpengaruh nyata secara signifikan pada taraf nyata 5%. Nilai Adjusted R-Square sebesar 0.9803 menunjukkan bahwa keragaman peubah y dapat yang dapat dijelaskan oleh peubah x adalah sebesar 98.03%
+
+## Deteksi Autokorelasi
+## Grafik
+### 1. Residual Plot
+```{r}
+#sisaan dan fitted value
+resi1 <- residuals(model)
+fit <- predict(model)
+
+#Diagnostik dengan eksploratif
+par(mfrow = c(2,2))
+
+qqnorm(resi1)
+qqline(resi1, col = "steelblue", lwd = 2)
+
+plot(fit, resi1, col = "steelblue", pch = 20, xlab = "Sisaan", 
+     ylab = "Fitted Values", main = "Sisaan vs Fitted Values")
+abline(a = 0, b = 0, lwd = 2)
+
+hist(resi1, col = "steelblue")
+
+plot(seq(1,12,1), resi1, col = "steelblue", pch = 20, 
+     xlab = "Sisaan", ylab = "Order", main = "Sisaan vs Order")
+lines(seq(1,12,1), resi1, col = "red")
+abline(a = 0, b = 0, lwd = 2)
+```
+
+1. Normal Q-Q Plot
+
+Secara eksploratif, terlihat bahwa data sisaan berada di sekitar garis qq-plot sebaran normal. Hal ini menunjukkan bahwa sisaan dapat dikatakan menyebar normal. 
+
+2. Residual vs Fitted Values
+
+Secara eksploratif, terlihat bahwa data sisaan masih berada di sekitar titik nol. Hal ini menunjukkan bahwa asumsi kehomogenan ragam terpenuhi.
+
+3. Histogram
+
+Secara eksploratif, histogram data sisaan menjulur ke kiri.
+
+4. Residual vs Order
+
+Secara eksploratif, titik pada plot kebebasan sisaan mayoritas berada di sekitar titik nol. Namun, terdapat beberapa titik amatan yang terletak cukup jauh dari titik nol, sehingga belum dapat disimpulkan apakah terdapat autokorelasi atau tidak.
+
+### 2. Plot ACF dan PACF
+```{r}
+par(mfrow = c(2,1))
+acf(resi1)
+pacf(resi1)
+```
+
+Pada plot ACF, terdapat satu garis yang melebihi garis biru. Hal ini mengindikasikan adanya autokorelasi pada data. Sedangkan pada plot PACF, tidak ada garis yang melebihi garis biru.
+
+## Uji Statistik
+### 1. Uji Durbin-Watson
+Hipotesis:
+
+H0: Tidak ada autokorelasi
+
+H1: Ada autokorelasi
+
+```{r}
+lmtest::dwtest(model, alternative = 'two.sided')
+```
+Berdasarkan hasil uji Durbin-Watson, p-value yang diperoleh adalah sebesar 0.001. Nilai tersebut lebih kecil dari taraf nyata yang digunakan, yaitu 5% sehingga H0 ditolak. Artinya, pada taraf nyata 5%, ada cukup bukti untuk menyatakan bahwa terdapat autokorelasi pada data.
+
+### 2. Breusch-Godfrey Test
+Hipotesis:
+
+H0: Tidak ada autokorelasi
+
+H1: Ada autokorelasi
+```{r}
+lmtest::bgtest(y ~ x, data=IPM, order=1)
+```
+Berdasarkan hasil uji Breusch-Godfrey, p-value yang diperoleh adalah sebesar 0.06. Nilai tersebut lebih besar dari taraf nyata yang digunakan, yaitu 5% sehingga H0 tidak ditolak. Artinya, pada taraf nyata 5%, ada cukup bukti untuk menyatakan bahwa tidak terdapat autokorelasi pada data.
+
+### 3. Run's Test
+Hipotesis: 
+
+H0: Tidak ada autokorelasi
+
+H1: Ada autokorelasi
+```{r}
+randtests::runs.test(model$residuals, alternative = 'two.sided')
+```
+Berdasarkan hasil uji Run's, p-value yang diperoleh adalah sebesar 0.22. Nilai tersebut lebih besar dari taraf nyata yang digunakan, yaitu 5% sehingga H0 tidak ditolak. Artinya, pada taraf nyata 5%, ada cukup bukti untuk menyatakan bahwa tidak terdapat autokorelasi pada data.
+
+## Penanganan Autokorelasi
+### 1. Cochrane-Orcutt
+Metode Cochrane-Orcutt merupakan metode yang menghitung nilai koefisien autokorelasi menggunakan nilai error pada model regresi. Kemudian, autokorelasi dihilangkan secara bertahap dari bentuk yang paling sederhana. 
+```{r}
+modelco <- cochrane.orcutt(model, convergence = 7, max.iter = 1000)
+modelco
+```
+```{r}
+#rho optimum
+rho <- modelco$rho
+rho
+```
+Nilai rho optimum yang diperoleh adalah sebesar 0.84. Kemudian akan dilakukan transformasi terhadap peubah x dan y menggunakan nilai rho optimum.
+```{r}
+#transformasi terhadap y dan x
+(y.trans <- y[-1]-y[-12]*rho)
+```
+```{r}
+(x.trans <- x[-1]-x[-12]*rho)
+```
+```{r}
+#model baru
+modelcorho <- lm(y.trans~x.trans)
+summary(modelcorho)
+```
+```{r}
+lmtest::dwtest(modelcorho,alternative = 'two.sided') 
+```
+Berdasarkan hasil uji Durbin-Watson pada model Cochrane-Orcutt, p-value yang diperoleh adalah sebesar 0.641. Nilai tersebut lebih besar dari taraf nyata yang digunakan, yaitu 5% sehingga H0 tidak ditolak. Artinya, pada taraf nyata 5%, ada cukup bukti untuk menyatakan bahwa tidak terdapat autokorelasi pada data. Kemudian akan dilakukan transformasi balik pada model baru untuk mendapatkan model regresi yang terbaru.
+
+```{r}
+b0 <- modelcorho$coefficients[1]/(1-rho)
+b0
+```
+```{r}
+b1 <- modelcorho$coefficients[2]
+b1
+```
+Setelah dilakukan transformasi balik, model regresi berubah menjadi y = -406.648 + 0.237x. Artinya, nilai dugaan rataan y akan bertambah sebesar 0.237 setiap x bertambah satu satuan atau satu tahun lamanya.
+
+### 2. Hildreth-Lu
+Metode Hildreth-Lu menggunakan pendekatan yang sama untuk memperkirakan rho optimum yang akan digunakan dalam transformasi. Nilai ρ dipilih dengan meminimalkan JKG untuk model regresi yang ditransformasi.
+
+```{r}
+hildreth.lu.func<- function(r, model){
+  x <- model.matrix(model)[,-1]
+  y <- model.response(model.frame(model))
+  n <- length(y)
+  t <- 2:n
+  y <- y[t]-r*y[t-1]
+  x <- x[t]-r*x[t-1]
+  
+  return(lm(y~x))
+}
+```
+```{r}
+#mencari rho yang meminimumkan SSE
+r <- c(seq(0.1,0.8, by= 0.1), seq(0.9,0.99, by= 0.01))
+tab <- data.frame("rho" = r, "SSE" = sapply(r, function(i){deviance(hildreth.lu.func(i, model))}))
+round(tab, 4)
+```
+```{r}
+#grafik rho dan SSE
+plot(tab$SSE ~ tab$rho , type = "l")
+abline(v = tab[tab$SSE==min(tab$SSE),"rho"], lty = 3)
+```
+
+Berdasarkan grafik di atas, terlihat bahwa rho optimum yang menghasilkan JKG terkecil berada di sekitar 0.8. Kemudian, selang akan diperkecil.
+
+```{r}
+#rho optimal di sekitar 0.8
+r <- seq(0.78, 0.85, by= 0.01)
+tab <- data.frame("rho" = r, "SSE" = sapply(r, function(i){deviance(hildreth.lu.func(i, model))}))
+round(tab, 4)
+```
+```{r}
+#grafik SSE optimum
+plot(tab$SSE ~ tab$rho , type = "l")
+abline(v = tab[tab$SSE==min(tab$SSE),"rho"], lty = 3)
+```
+
+Berdasarkan grafik di atas, nilai rho optimum yang menghasilkan JKG terkecil adalah 0.84. Nilai rho tersebut akan digunakan untuk membuat model terbaik berdasarkan metode Hildreth-Lu.
+```{r}
+# Model terbaik
+modelhl <- hildreth.lu.func(0.74, model)
+summary(modelhl)
+```
+```{r}
+# Deteksi autokorelasi
+dwtest(modelhl)
+```
+Berdasarkan hasil uji Durbin-Watson pada model Hildreth-Lu, p-value yang diperoleh adalah sebesar 0.2141. Nilai tersebut lebih besar dari taraf nyata yang digunakan, yaitu 5% sehingga H0 tidak ditolak. Artinya, pada taraf nyata 5%, ada cukup bukti untuk menyatakan bahwa tidak terdapat autokorelasi pada data.
+# Transformasi Balik
+```{r}
+cat("IPM = ", coef(modelhl)[1]/(1-0.74), "+", coef(modelhl)[2],"tahun", sep = "")
+```
+Setelah dilakukan transformasi balik, model regresi berubah menjadi y = -615.2215 + 0.3404685x + ε. Artinya, nilai dugaan rataan y akan bertambah sebesar 0.3404685 setiap x bertambah satu satuan atau satu tahun lamanya.
+
+## Kesimpulan
+Autokorelasi pada data 'Indeks Pembangunan Manusia di Provinsi Banten Tahun 2010-2021' terdeteksi menggunakan Uji Durbin-Watson. Namun, dengan menggunakan Uji Run's dan Uji Breusch-Godfrey, tidak ada autokorelasi yang terdeteksi pada data tersebut. Autokorelasi yang terdeteksi kemudian berhasil ditangani menggunakan metode Cochrane-Orcutt dan Hildreth-Lu.

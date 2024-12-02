@@ -1,0 +1,22 @@
+# create a matrix
+A <- matrix(c(-3,2,-1,6,-6,7,3,-4,4),byrow = T,nrow=3,ncol=3)
+A # print a matrix
+b <- matrix(c(-1,-7,-6),nrow=3,ncol=1)
+b # print matrix b
+# dimension of matrix A
+nrow <- nrow(A)
+nrow
+# concatenante matrix A and vector b
+Ugmt.mtx <- cbind(A,b)
+Ugmt.mtx
+
+Ugmt.mtx[1,] <- Ugmt.mtx[1,]/Ugmt.mtx[1,1]
+
+for (i in 2:nrow){ # loop over rows
+  for (j in i:nrow) { # loop over columns
+    Ugmt.mtx[j, ] <- Ugmt.mtx[j, ] - Ugmt.mtx[i-1, ] * Ugmt.mtx[j, i-1] # replace the row values at jth position with left hand computions
+  }
+  Ugmt.mtx[i,] <- Ugmt.mtx[i,]/Ugmt.mtx[i,i]
+}
+# print ouput
+Ugmt.mtx

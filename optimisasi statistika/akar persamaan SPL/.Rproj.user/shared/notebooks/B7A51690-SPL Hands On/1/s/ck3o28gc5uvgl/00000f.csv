@@ -1,0 +1,3 @@
+"0","A <- t(pred) %*% pred #(X'X)"
+"0","b <- t(pred) %*% resp #(X'y)"
+"0","Ab <- cbind(A,b)"
