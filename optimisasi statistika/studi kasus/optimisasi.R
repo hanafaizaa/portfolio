@@ -1,142 +1,23 @@
----
-title: "Optimisasi Statistika"
-author: "Hana Faiza Amalina"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
-output:
-  html_document:
-    df_print: paged
-  toc: yes
-  toc_float: yes
-  toc_depth: 3
-  highlight: kate
-  rmdformats::readthedown: null
----
+## Studi Kasus Optimisasi Statistika: menduga parameter regresi menggunakan MKT dan eliminasi Gauss-Jordan
 
-## Pre-processing data
-
-```{r}
 library(readxl)
 data <- read_excel("C:/Users/hanfai/portfolio/optimisasi statistika/timbulan sampah.xlsx")
 data <- data[,-1]
 summary(data)
-```
 
-## Eksplorasi Data
-
-### Histogram dan Boxplot
-```{r}
-library(DataExplorer)
-plot_histogram(data = data, nrow = 2, ncol = 3, geom_histogram_args = list (fill="#D27685"))
-```
-
-Seluruh peubah memiliki sebaran yang menjulur ke kanan, kecuali peubah Rata-Rata Lama Sekolah yang cenderung menyebar simetris.
-
-```{r}
-par(mfrow=c(2,2))
-boxplot(data$Sampah, xlab = "Timbulan Sampah", main = "")
-boxplot(data$TPA, xlab = "Jumlah Tempat Pemrosesan Akhir", main = "")
-boxplot(data$JP, xlab = "Jumlah Penduduk", main = "")
-boxplot(data$PPKD, xlab = "Pengeluaran per Kapita Disesuaikan", main = "")
-```
-
-Terdapat pencilan pada seluruh peubah, kecuali peubah Jumlah Tempat Pemrosesan Akhir.
-
-### Plot Korelasi
-```{r}
+# Eksplorasi data
 library(corrplot)
 korel<-cor(data)
 corrplot(korel, type ="upper", method="number")
-```
 
-### Model Awal
-
-Dilakukan standardisasi terlebih dahulu karena perbedaan skala pada masing-masing peubah. Setelah itu dibangun model regresi berdasarkan data yang sudah terstandardisasi.
-
-```{r}
+# Model awal
 dt.scale <- as.data.frame(scale(data))
 reg <- lm(Sampah ~ ., data = dt.scale)
 summary(reg)
-```
 
-Peubah TPA, JP, dan PPKD berpengaruh nyata terhadap peubah Sampah pada taraf nyata 5%.
-
-### Uji Multikolinieritas
-```{r}
 library(car)
-vif(reg)
-```
-Terjadinya multikolinieritas ditandai dengan nilai VIF yang lebih besar dari 10. Seluruh peubah memiliki nilai VIF < 10, sehingga tidak terjadi multikolinieritas pada data. 
+vif(reg) # uji multikolinieritas
 
-### Deteksi Pencilan
-```{r}
-ei = reg$residuals
-n = dim(data)[1]
-p = length(reg$coefficients)
-
-hii <- hatvalues(reg)
-ri <- rstandard(reg)
-
-Obs = c(1:n)
-
-summ <- cbind.data.frame(Obs, ei, hii, ri)
-for (i in 1:dim(summ)[1]){
-  absri <- abs(summ[,4])
-  pencilan <- which(absri > 2)
-}
-pencilan 
-```
-Terdapat tiga amatan yang merupakan pencilan, yakni amatan ke-6, ke9, dan ke-10.
-
-## Eksploratif asumsi
-```{r}
-plot(reg,1)                # plot sisaan vs yduga
-plot(reg,2)                # qq-plot
-plot(x = 1:dim(dt.scale)[1],
-     y = reg$residuals,
-     type = 'b', 
-     ylab = "Residuals",
-     xlab = "Observation")       # plot sisaan vs urutan
-```
-
-## Uji Sisaan
-### Asumsi Gauss-Markov
-#### 1. Nilai harapan sisaan sama dengan nol
-Digunakan t-test untuk menguji asumsi ini.
-H0: nilai harapan sisaan sama dengan nol
-H1: nilai harapan sisaan tidak sama dengan nol
-```{r}
-t.test(reg$residuals,
-       mu = 0,
-       conf.level = 0.95)
-```
-Diperoleh p-value = 1 > alpha=0.05, maka tak tolak H0, sehingga nilai harapan sisaan sama dengan nol.
-
-#### 2. Sisaan saling bebas 
-```{r}
-library(randtests)
-runs.test(reg$residuals)
-```
-
-Diperoleh p-value > alpha=0.05 maka tak tolak H0, sehingga siaan saling bebas atau tidak terdapat autokorelasi.
-
-#### 3. Ragam sisaan homogen
-```{r}
-library(lmtest)
-bptest(reg)
-```
-
-Diperoleh p-value < alpha=0.05, maka tolak H0, ragam sisaan tidak homogen. Diperlukan penanganan sehingga sisaan homogen.
-
-### Asumsi Normalitas Sisaan
-```{r}
-ks.test(reg$residuals, "pnorm", mean=mean(reg$residuals), sd=sd(reg$residuals))
-```
-
-Diperoleh p-value > alpha=0.05 maka tak tolak H0 sehingga sisaan menyebar normal. 
-
-## Fungsi Uji Asmusi Klasik
-
-```{r}
 uji_asumsi <- function(modelreg, autocol.test = c("runs", "dw", "bgodfrey"), 
                        homos.test = c("bp", "glejser", "ncv"), 
                        normal.test = c("ks", "shapiro.w", "jb"), taraf.nyata=0.05){
@@ -218,44 +99,30 @@ uji_asumsi <- function(modelreg, autocol.test = c("runs", "dw", "bgodfrey"),
                  xlab = "Observation")
   print(tabel, duga, kuantil, urutan)
 }
-```
 
-# Uji Asumsi
-
-```{r}
 uji_asumsi(modelreg=reg, normal.test = "ks", autocol.test = "runs",
            homos.test = "bp")
-```
 
-# Penanganan Data Tak Standar
-
-```{r}
+# Penanganan data tak standar
 spreadLevelPlot(reg)
 lambda = 0.3683835
 dt.scale$T_Box = (data$Sampah ^ lambda - 1)/lambda
 reg2 = lm(T_Box ~ TPA + JP + PPKD, data = dt.scale)
 summary(reg2)
-```
 
-```{r}
 uji_asumsi(modelreg=reg2, normal.test = "ks", autocol.test = "runs",
            homos.test = "bp")
-```
 
-## Eliminasi Gauss Jordan
-```{r}
+# Eliminasi Gauss-Jordan
 pred <- cbind(intercept = 1, TPA = dt.scale$TPA, JP = dt.scale$JP,
               PPKD = dt.scale$PPKD)
 head(pred)
 
 resp <- dt.scale$T_Box
 head(resp)
-
 A <- t(pred) %*% pred #(X'X)
 b <- t(pred) %*% resp #(X'y)
-```
 
-```{r}
 nrow <- nrow(A)
 nrow
 
@@ -272,4 +139,3 @@ for (i in 2:nrow){
 }
 # print ouput
 Ugmt.mtx
-```

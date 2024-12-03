@@ -225,8 +225,6 @@ for (i in j:2){
 }
 Ugmt.mtx
 
-
-
 #Metode Iterasi
 ##Metode Iterasi Jacobian
 (A <- matrix(c(5,2,1,2,7,3,3,4,8), 3))
@@ -414,5 +412,3 @@ result <- jacobi(A, b, x0)
 x <- result$x
 iter <- result$iter
 cat("The solution is x =", x, " after ", iter, " iterations\n")
-
-#gauss seidel

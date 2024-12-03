@@ -1,3 +1,8 @@
+## Data Challenge
+# Sintaks ini dibuat guna memenuhi tugas mata kuliah Data Challenge.
+# Data yang digunakan merupakan data kendaraan yang keluar-masuk gerbang IPB University.
+# Tujuan analisis ini adalah menentukan jumlah gate motor optimal untuk mengurai kemacetan.
+
 library(readxl)
 data <- read_excel("C:/Users/hanfai/portfolio/data challenge/DC.xlsx", sheet = 1)
 data <- data[,-c(10,11)]

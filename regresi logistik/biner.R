@@ -1,11 +1,15 @@
+## Regresi Logistik Biner
+
 library(rcompanion)
 library(car)
 library(dplyr)
 library(ggplot2)
+
 # input data
 dt <- data.frame(read.csv("C:/Users/hanfai/portfolio/regresi logistik/logistik biner/titanic_clean.csv"))
 head(dt)
 str(dt)
+
 # pra-processing
 dt$sex <- ifelse(dt$Sex == "male", 1, 0)
 

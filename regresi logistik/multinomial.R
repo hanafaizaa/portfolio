@@ -1,3 +1,10 @@
+## Regresi Logistik Multinomial: metode yang digunakan untuk mengukur hubungan
+# sebab akibat antara peubah bebas X dengan peubah respon Y yang terdiri lebih 
+# dari 2 kategori.
+
+# Data yang digunakan terdiri dari 5 peubah, dengan peubah respon kategorik (3
+# kategori), dan 4 peubah bebas numerik lainnya.
+
 library(ggplot2)
 library(dplyr)
 
@@ -6,6 +13,7 @@ View(dt)
 str(dt)
 contrasts(dt$Species)
 
+# Eksplorasi data
 ggplot(dt %>% filter(Species == "versicolor" | Species == "setosa"),
        aes(x = as.numeric(Sepal.Length), y = as.numeric(Species))) +
   geom_point() +
@@ -18,7 +26,6 @@ ggplot(dt %>% filter(Species == "virginica" | Species == "setosa"),
   geom_smooth(method = "loess", se = FALSE) +
   theme_classic()
 
-##============= Regresi Logistik Multinomial ===========
 # Model
 library(nnet)
 mod1 <- multinom(Species ~., data = dt, model = T)

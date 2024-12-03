@@ -1,4 +1,0 @@
-"0","replace_row <- function(m, row1, row2, k){"
-"0","  m[row2, ] <- m[row2, ] + m[row1, ]*k"
-"0","  return(m)"
-"0","}"

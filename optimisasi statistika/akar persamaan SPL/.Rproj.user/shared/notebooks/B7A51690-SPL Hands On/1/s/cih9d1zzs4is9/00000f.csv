@@ -1,6 +1,0 @@
-"0","swap_row <- function(m, row1, row2){"
-"0","  row_tmp <- m[row1, ]"
-"0","  m[row1, ] <- m[row2, ]"
-"0","  m[row2, ] <- row_tmp"
-"0","  return(m)"
-"0","}"

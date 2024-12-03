@@ -1,4 +1,4 @@
-dd <- read.csv("D:/untukga.csv")
+dd <- read.csv("C:/Users/hanfai/portfolio/optimisasi statistika/untukga.csv")
 x <- dd[,1:11]
 y <- dd[,12]
 
