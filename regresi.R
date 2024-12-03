@@ -1,62 +1,10 @@
----
-title: "Laporan Responsi 1 PSD"
-author: "Hana Faiza Amalina"
-date: "`r Sys.Date()`"
-output:
-  html_document: default
-  pdf_document: default
-editor_options: 
-  markdown: 
-    wrap: 72
----
+## Regresi
 
-## 1. Pendahuluan
+# Analisis ini akan membandingkan beberapa metode regresi, seperti regresi linier, regresi polinomial, 
+# regresi fungsi tangga, spline regression (B-spline dan natural spline), smoothing spline, dan fungsi LOESS.
+# Data yang digunakan adalah dataset Auto dari library ISLR. Peubah yang akan digunakan adalah peubah mpg
+# (mil per galon), horsepower (tenaga kuda mesin), dan origin (asal mobil, 1 = amerika; 2 = eropa; 3 = jepang).
 
-### 1.1. Data
-
-Data yang akan digunakan adalah dataset ```Auto``` dari library ```ISLR```. Pada tugas ini, peubah yang akan digunakan adalah peubah ```mpg```, ```horsepower```, dan ```origin```. 
-
-1. ```mpg```: Mil per galon 
-
-2. ```horsepower```: Tenaga kuda mesin 
-
-3. ```origin```: Asal mobil (1. Amerika, 2. Eropa, 3. Jepang)
-
-### 1.2. Model Regresi
-
-Pemodelan pada data non-linier dengan menggunakan:
-
-1. Regresi Linier
-
-2. Regresi Polinomial
-
-3. Regresi Fungsi Tangga 
-
-4. Spline Regression (B-Spline dan Natural Spline)
-
-5. Smoothing Spline 
-
-6. Fungsi LOESS
-
-### 1.3. Package
-
-Package yang digunakan adalah sebagai berikut.
-
-1. ```tidyverse```
-
-2. ```ggplot2```
-
-3. ```dplyr```
-
-4. ```purrr```
-
-5. ```rsample```
-
-6. ```ISLR```
-
-7. ```splines```
-
-```{r include=FALSE}
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
@@ -64,32 +12,17 @@ library(purrr)
 library(rsample)
 library(ISLR)
 library(splines)
-```
 
-## 2. Pemodelan Menggunakan Regresi
-
-### 2.1. Input Data
-
-```{r}
 AutoData = Auto %>% select(mpg, horsepower, origin)
 tibble(AutoData)
-```
 
-### 2.2. Eksplorasi Data
+pairs(AutoData, lower.panel = NULL) 
+# Peubah mpg dan horsepower memiliki plot yang membentuk suatu lengkungan, 
+# sedangkan plot peubah origin dengan kedua peubah lainnya tidak membentuk suatu pola tertentu. 
+# Sehingga, peubah yang akan dianalisis hanya peubah mpg sebagai peubah respon 
+# dan peubah horsepower sebagai peubah penjelas.
 
-```{r}
-pairs(AutoData, lower.panel = NULL)
-```
-
-Peubah `mpg` dan `horsepower` memiliki plot yang membentuk suatu
-lengkungan, sedangkan plot peubah `origin` dengan kedua peubah lainnya
-tidak membentuk suatu pola tertentu. Sehingga, peubah yang akan
-dianalisis hanya peubah `mpg` sebagai peubah respon dan peubah
-`horsepower` sebagai peubah penjelas.
-
-### 2.3. Regresi Linier
-
-```{r}
+# Regresi Linier
 mod_linear <- lm(mpg ~ horsepower, data = AutoData)
 summary(mod_linear)
 
@@ -99,13 +32,9 @@ ggplot(AutoData,aes(x=horsepower, y=mpg)) +
               formula = y~x,lty = 1,
               col = "blue",se = F)+
   theme_bw()
-```
 
-### 2.4. Regresi Polinomial
-
-#### 2.4.1. Ordo 1
-
-```{r}
+# Regresi Polinomial
+## Ordo 1
 mod_polinomial1 = lm(mpg ~ poly(horsepower, 1, raw = T),
                      data = AutoData)
 summary(mod_polinomial1)
@@ -116,11 +45,8 @@ ggplot(AutoData,aes(x=horsepower, y=mpg)) +
               formula = y~poly(x,1,raw=T), 
               lty = 1, col = "blue",se = T)+
   theme_bw()
-```
 
-#### 2.4.2. Ordo 2
-
-```{r}
+## Ordo 2
 mod_polinomial2 = lm(mpg ~ poly(horsepower, 2, raw = T),
                      data = AutoData)
 summary(mod_polinomial2)
@@ -131,11 +57,8 @@ ggplot(AutoData,aes(x=horsepower, y=mpg)) +
               formula = y~poly(x,2,raw=T), 
               lty = 1, col = "blue",se = T)+
   theme_bw()
-```
 
-#### 2.4.3. Ordo 3
-
-```{r}
+## Ordo 3
 mod_polinomial3 = lm(mpg ~ poly(horsepower, 3, raw = T), data = AutoData)
 summary(mod_polinomial3)
 
@@ -145,11 +68,8 @@ ggplot(AutoData,aes(x=horsepower, y=mpg)) +
               formula = y~poly(x,3,raw=T), 
               lty = 1, col = "blue",se = T)+
   theme_bw()
-```
 
-#### 2.4.4. Ordo 4
-
-```{r}
+## Ordo 4
 mod_polinomial4 = lm(mpg ~ poly(horsepower, 4, raw = T),
                      data = AutoData)
 summary(mod_polinomial4)
@@ -160,11 +80,8 @@ ggplot(AutoData,aes(x=horsepower, y=mpg)) +
               formula = y~poly(x,4,raw=T), 
               lty = 1, col = "blue",se = T)+
   theme_bw()
-```
 
-### 2.5. Regresi Fungsi Tangga
-
-```{r}
+# Regresi Fungsi Tangga
 breaks_tangga <- data.frame("df" = c(rep(NA, 8)), "AIC" = c(rep(NA, 8)), "MSE" = c(rep(NA, 8)))
 for(j in 2:3){
   for(i in 3:10){
@@ -176,12 +93,9 @@ for(j in 2:3){
   }
 }
 breaks_tangga
-```
+# Fungsi tangga dengan nilai AIC terkecil adalah fungsi dengan breaks = 6.
+# Selanjutnya, akan dibangun model fungsi tangga dengan breaks = 6.
 
-Fungsi tangga dengan nilai AIC terkecil adalah fungsi dengan breaks = 6.
-Selanjutnya, akan dibangun model fungsi tangga dengan breaks = 6.
-
-```{r}
 mod_tangga = lm(mpg ~ cut(horsepower,6), data = AutoData)
 summary(mod_tangga)
 
@@ -191,19 +105,11 @@ ggplot(AutoData,aes(x=horsepower, y=mpg)) +
               formula = y~cut(x,6), 
               lty = 1, col = "blue",se = F)+
   theme_bw()
-```
 
-### 2.6. Regresi Spline
+# Regresi Spline
+knots <- attr(bs(AutoData$horsepower, df=6),"knots") #banyak knots yang digunakan
 
-Banyaknya knots yang akan digunakan ditentukan oleh komputer.
-
-```{r}
-knots <- attr(bs(AutoData$horsepower, df=6),"knots")
-```
-
-#### 2.6.1. B-Spline
-
-```{r}
+## B-spline
 mod_bspline = lm(mpg ~ bs(horsepower, knots =knots), data=AutoData)
 summary(mod_bspline)
 ggplot(AutoData,aes(x=horsepower, y=mpg)) +
@@ -211,11 +117,8 @@ ggplot(AutoData,aes(x=horsepower, y=mpg)) +
   stat_smooth(method = "lm", 
               formula = y~bs(x, knots = knots), 
               lty = 1,se = F)
-```
 
-#### 2.6.2. Natural Spline
-
-```{r}
+## Natural spline
 mod_nspline = lm(mpg ~ ns(horsepower, knots = knots),data=AutoData)
 summary(mod_nspline)
 ggplot(AutoData,aes(x=horsepower, y=mpg)) +
@@ -223,11 +126,8 @@ ggplot(AutoData,aes(x=horsepower, y=mpg)) +
   stat_smooth(method = "lm", 
               formula = y~ns(x, knots = knots), 
               lty = 1,se=F)
-```
 
-### 2.7. Smoothing Spline
-
-```{r}
+# Smoothing spline
 model_sms <- with(data = AutoData,smooth.spline(horsepower,mpg))
 model_sms 
 
@@ -240,13 +140,10 @@ ggplot(pred_data,aes(x=x,y=y))+
   xlab("Horse Power")+
   ylab("mpg (Miles per gallon")+
   theme_bw()
-```
 
-Garis regresi yang dihasilkan tidak terlalu mengikuti pola data,
-sehingga diperlukan parameter pemulusan berupa lambda. Lambda yang
-optimal akan menghasilkan pemulusan yang terbaik.
+# Garis regresi yang dihasilkan tidak terlalu mengikuti pola data, sehingga diperlukan parameter 
+# pemulusan berupa lambda. Lambda yang optimal akan menghasilkan pemulusan yang terbaik.
 
-```{r}
 model_sms_lambda <- data.frame(lambda=seq(0,5,by=0.5)) %>% 
   group_by(lambda) %>% 
   do(broom::augment(with(data = AutoData,smooth.spline(horsepower,mpg,lambda = .$lambda))))
@@ -272,14 +169,8 @@ ggplot(pred_data,aes(x=x,y=y))+
   xlab("age")+
   ylab("triceps")+
   theme_bw()
-```
 
-Setelah menambahkan parameter pemulusan, garis pada plot terlihat lebih
-mengikuti pola data.
-
-### 2.8. Fungsi LOESS
-
-```{r warning=FALSE}
+# Fungsi LOESS
 model_loess <- loess(mpg ~ horsepower, data = AutoData)
 summary(model_loess)
 
@@ -306,11 +197,8 @@ ggplot(AutoData, aes(horsepower,mpg)) +
               col="blue",
               lty=1,
               se=F)
-```
 
-### 2.9. Perbandingan Hasil Model
-
-```{r}
+# Perbandingan model
 MSE = function(pred,actual){
   mean((pred-actual)^2)
 }
@@ -328,29 +216,12 @@ nama_model <- c("Linier","Polinomial ordo 1", "Polinomial ordo 2","Polinomial or
                 "Polinomial ordo 4","Fungsi Tangga", "B-Spline", "Natural Spline", "Fungsi LOESS")
 eval.mod <- data.frame(nama_model, nilai_MSE)
 eval.mod
-```
 
-Tanpa membagi data ke dalam data latih dan data uji terlebih dahulu,
-model terbaik adalah model regresi b-spline dengan nilai MSE terkecil,
-yaitu 18.10643.
-
-## 3. Evaluasi Model Menggunakan Cross Validation
-
-Cross validation berarti secara otomatis membagi data ke dalam data latih dan data uji, tergantung parameter cv yang digunakan. 
-
-+ cv = 1, data utuh 
-
-+ cv = 2, data dibagi menjadi dua bagian, dst.
-
-### 3.1. Penetapan Parameter CV
-
-```{r}
+# Evaluasi model dengan cross validation (membagi data ke dalam data latih dan data uji)
+# Penetapan Parameter CV
 cross_val <- vfold_cv(AutoData, v=10, strata = "mpg")
-```
 
-### 3.2. Regresi Linier
-
-```{r}
+# Regresi Linier
 mod_lin_cv <- map_dfr(cross_val$splits, 
                       function(x){
                         mod <- lm(mpg ~ horsepower,data=AutoData[x$in_id,])
@@ -365,13 +236,9 @@ mod_lin_cv <- map_dfr(cross_val$splits,
 )
 mean_mod_lin_cv <- colMeans(mod_lin_cv)
 mean_mod_lin_cv
-```
 
-### 3.3. Regresi Polinomial
-
-#### 3.3.1. Ordo 1
-
-```{r}
+# Regresi Polinomial
+## Ordo 1
 mod_polinomial1_cv <- map_dfr(cross_val$splits, 
                               function(x){
                                 mod <- lm(mpg ~ poly(horsepower,1,raw = T),data=AutoData[x$in_id,])
@@ -386,11 +253,8 @@ mod_polinomial1_cv <- map_dfr(cross_val$splits,
 )
 mean_mod_polinomial1_cv <- colMeans(mod_polinomial1_cv)
 mean_mod_polinomial1_cv
-```
 
-#### 3.3.2. Ordo 2
-
-```{r}
+## Ordo 2
 mod_polinomial2_cv <- map_dfr(cross_val$splits, 
                               function(x){
                                 mod <- lm(mpg ~ poly(horsepower,2,raw = T),data=AutoData[x$in_id,])
@@ -405,11 +269,8 @@ mod_polinomial2_cv <- map_dfr(cross_val$splits,
 )
 mean_mod_polinomial2_cv <- colMeans(mod_polinomial2_cv)
 mean_mod_polinomial2_cv
-```
 
-#### 3.3.3. Ordo 3
-
-```{r}
+## Ordo 3
 mod_polinomial3_cv <- map_dfr(cross_val$splits, 
                               function(x){
                                 mod <- lm(mpg ~ poly(horsepower,3,raw = T),data=AutoData[x$in_id,])
@@ -424,11 +285,8 @@ mod_polinomial3_cv <- map_dfr(cross_val$splits,
 )
 mean_mod_polinomial3_cv <- colMeans(mod_polinomial3_cv)
 mean_mod_polinomial3_cv
-```
 
-#### 3.3.4. Ordo 4
-
-```{r}
+## Ordo 4
 mod_polinomial4_cv <- map_dfr(cross_val$splits, 
                               function(x){
                                 mod <- lm(mpg ~ poly(horsepower,4,raw = T),data=AutoData[x$in_id,])
@@ -443,11 +301,8 @@ mod_polinomial4_cv <- map_dfr(cross_val$splits,
 )
 mean_mod_polinomial4_cv <- colMeans(mod_polinomial4_cv)
 mean_mod_polinomial4_cv
-```
 
-### 3.4. Regresi Fungsi Tangga
-
-```{r}
+# Regresi Fungsi Tangga
 breaks <- 3:10
 mod_tangga_cv <- map_dfr(breaks, function(i){
   metric_tangga <- map_dfr(cross_val$splits,
@@ -480,16 +335,9 @@ mod_tangga_cv <- map_dfr(breaks, function(i){
 mod_tangga_cv <- cbind(breaks=breaks,mod_tangga_cv)
 mod_tangga_cv %>% slice_min(rmse, n = 5)
 mod_tangga_cv %>% slice_min(mae, n = 5)
-```
 
-Fungsi tangga dengan nilai RMSE dan MAE terkecil adalah fungsi dengan
-breaks = 8.
-
-### 3.5. Regresi Spline
-
-#### 3.5.1. B-Spline
-
-```{r message=FALSE, warning=FALSE}
+# Regresi Spline
+## B-spline
 mod_bspline_cv <- map_dfr(cross_val$splits,
                           function(x){
                             mod <- lm(mpg ~ bs(horsepower,knots=knots),data=AutoData[x$in_id,])
@@ -504,11 +352,8 @@ mod_bspline_cv <- map_dfr(cross_val$splits,
 )
 mean_mod_bspline_cv <- colMeans(mod_bspline_cv)
 mean_mod_bspline_cv
-```
 
-#### 3.5.2. Natural Spline
-
-```{r}
+## Natural Spline
 mod_nspline_cv <- map_dfr(cross_val$splits,
                           function(x){
                             mod <- lm(mpg ~ ns(horsepower,knots=knots),data=AutoData[x$in_id,])
@@ -523,11 +368,8 @@ mod_nspline_cv <- map_dfr(cross_val$splits,
 )
 mean_mod_nspline_cv <- colMeans(mod_nspline_cv)
 mean_mod_nspline_cv
-```
 
-### 3.6. Fungsi LOESS
-
-```{r warning=FALSE}
+# Fungsi LOESS
 span <- seq(0.1,1,length.out=50)
 mod_loess_cv <- map_dfr(span, function(i){
   metric_loess <- map_dfr(cross_val$splits,
@@ -555,19 +397,11 @@ mod_loess_cv <- map_dfr(span, function(i){
 mod_loess_cv <- cbind(span=span,mod_loess_cv)
 mod_loess_cv %>% slice_min(rmse)
 mod_loess_cv %>% slice_min(mae)
-```
 
-Nilai span dengan RMSE dan MAE terkecil adalah 0.3755102.
-
-### 3.7. Perbandingan Hasil Model
-
-```{r warning=FALSE}
+# Perbandingan Hasil Model
 eval.mod.cv <- rbind(mean_mod_lin_cv, mean_mod_polinomial1_cv, mean_mod_polinomial2_cv, mean_mod_polinomial3_cv,
                      mean_mod_polinomial4_cv, mod_tangga_cv[6,2:3],mean_mod_bspline_cv, mean_mod_nspline_cv,
                      mod_loess_cv[16,-1])
 rownames(eval.mod.cv) <- c("Linier","Polinomial ordo 1", "Polinomial ordo 2","Polinomial ordo 3",
                            "Polinomial ordo 4","Fungsi Tangga", "B-Spline", "Natural Spline", "Fungsi LOESS")
 eval.mod.cv
-```
-
-Berdasarkan hasil pemodelan dengan menggunakan cross validation 10 folds, model dengan nilai RMSE dan MAE terkecil adalah model LOESS dengan nilai span sebesar 0.3755102.
