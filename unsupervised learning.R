@@ -25,16 +25,8 @@ data("Glass")
 head(Glass)
 
 library(dplyr)
-library(corrplot)
-library(glmnet)
 library(ggplot2)
-library(MuMIn)
-library(broom)
-library(MASS)
-library(leaps)
 library(factoextra)
-library(plyr)
-library(tidyr)
 library(tidyverse)
 library(caret)
 library(Hmisc)
@@ -47,9 +39,9 @@ dt <- Glass[-40,]
 dt[duplicated(dt),]
 dt[!complete.cases(dt),]
 
-# merapikan dataset dengan langkah sebagai berikut:
-# 1. menghilangkan peubah RI dan Type karena tidak ada informasi yang bisa diambil dari sana.
-# 2. melakukan standardisasi pada peubah yang tersisa karena setiap peubah memiliki skala yang berbeda. 
+# Merapikan dataset dengan langkah sebagai berikut:
+# 1. Menghilangkan peubah RI dan Type karena tidak ada informasi yang bisa diambil dari sana.
+# 2. Melakukan standardisasi pada peubah yang tersisa karena setiap peubah memiliki skala yang berbeda. 
 #    penggerombolan data erat kaitannya dengan jarak, sehingga perbedaan skala dapat mempengaruhi hasil penggerombolan. 
 #    standardisasi dilakukan menggunakan z-score.
 
@@ -74,33 +66,44 @@ dt <- dt[,-7] #sama seperti Ba, peubah ini akan dihapus
 
 head(dt)
 
-# Hierarchical clustering
-## Complete linkage
+# Hierarchical clustering: dimulai dengan setiap satu amatan sebagai gerombolnya sendiri, kemudian terus mengelompokkan amatan-amatan ke dalam gerombol yang semakin besar.
+
+## Complete linkage: jarak dua gerombol diukur dengan jarak terjauh antara sebuah objek dalam gerombol yang satu dengan sebuah objek dalam gerombol yang lain.
 fviz_nbclust(dt.scl, FUNcluster = hcut, method = "silhouette", hc_method = "complete", hc_metric="euclidean") #k = 2
 
-## Average linkage
+## Average linkage: proses pengelompokkan yang didasarkan pada jarak rata-rata antar objeknya.
 fviz_nbclust(dt.scl, FUNcluster = hcut, method = "silhouette", hc_method = "average", hc_metric="euclidean") #k = 2
 
-## Centroid linkage
+## Centroid linkage:  jarak dua buah gerombol diukur sebagai jarak euclid antara kedua rataan (centroid) gerombol.
 fviz_nbclust(dt.scl, FUNcluster = hcut, method = "silhouette", hc_method = "centroid", hc_metric="euclidean") #k = 2
 
-## Single linkage
+## Single linkage: jarak dua gerombol diukur dengan jarak terdekat antara sebuah objek dalam gerombol yang satu dengan sebuah objek dalam gerombol yang lain.
 fviz_nbclust(dt.scl, FUNcluster = hcut, method = "silhouette", hc_method = "single", hc_metric="euclidean") #k = 2
 
+# Berdasarkan keempat metode linkage, jumlah gerombol yang dibentuk adalah k = 2.
 hc.data <- eclust(dt, stand = TRUE, FUNcluster = "hclust", k=2, hc_method = "complete", hc_metric = "euclidean", graph = F)
 hc.data$cluster #cluster dari setiap pengamatan
 fviz_cluster(hc.data)
 
-## karakteristik gerombol
+## Karakteristik gerombol
 aggregate(dt, by=list(cluster=hc.data$cluster), FUN = mean)
 
-# Non-hierarchical clustering
+# Unsur-unsur pada gerombol 1 dari yang paling mendominasi adalah Si, Na, Ca, Mg, Al, dan K.
+# Unsur-unsur pada gerombol 2 dari yang paling mendominasi adalah Si, Na, Ca, Al, Mg, dan K.
+# Kaca yang dibuat dengan unsur-unsur pada gerombol 1 lebih kuat daripada kaca yang dibuat dengan unsur-unsur pada gerombol 2.
+
+# Non-hierarchical clustering (K-Means: membagi kumpulan data ke dalam K buah gerombol yang berbeda.)
 fviz_nbclust(dt.scl, FUNcluster = kmeans, method = "wss") #k = 3
 
 kmeans.data <- eclust(dt, stand = TRUE, FUNcluster = "kmeans", k=3, graph = F)
 fviz_cluster(kmeans.data)
 
-## karakteristik gerombol
+## Karakteristik gerombol
 kmeans.data$cluster
 kmeans.data$centers
 aggregate(dt, by=list(cluster=kmeans.data$cluster), FUN = mean)
+
+# Unsur-unsur pada gerombol 1 dari yang paling mendominasi adalah Si, Na, Ca, Mg, Al, dan K.
+# Unsur-unsur pada gerombol 2 dari yang paling mendominasi adalah Si, Na, Ca, Al, Mg, dan K.
+# Unsur-unsur pada gerombol 3 dari yang paling mendominasi adalah Si, Na, Ca, Al, Mg, dan K.
+# Kaca yang paling kuat secara berturut-turut adalah kaca yang dibuat dari unsur-unsur pada gerombol 2, gerombol 1, dan terakhir gerombol 3.

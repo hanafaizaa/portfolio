@@ -55,11 +55,14 @@ ggplot(data,
        aes( x = Age, fill = Gender)) + 
   geom_density(alpha = 0.4)
 
-# Non-hierarchical clustering: K-Means Clustering
+## Non-hierarchical clustering: K-Means Clustering
+
+# K optimum ditentukan berdasarkan nilai within sum of squares. K yang dipilih adalah nilai dimana penambahan K selanjutnya tidak menghasilkan penurunan WSS yang signifikan.
 fviz_nbclust(dt,
              FUNcluster = kmeans,
              method = "wss")
 
+# Membentuk gerombol
 RNGkind(sample.kind = "Rounding")
 set.seed(28)
 data.kmeans <- kmeans(dt, centers = 5)
@@ -72,6 +75,12 @@ data %>%
   group_by(Cluster) %>%
   summarise_all(.funs = "mean") %>%
   select(-Gender, -CustomerID)
+
+# Gerombol 1: rata-rata usia pelanggan 25 tahun dengan pendapatan tahunan rendah dan skor penilaian tinggi.
+# Gerombol 2: rata-rata usia pelanggan 45 tahun dengan pendapatan tahunan rendah dan skor penilaian rendah.
+# Gerombol 3: rata-rata usia pelanggan 42 tahun dengan pendapatan tahunan sedang dan skor penilaian sedang.
+# Gerombol 4: rata-rata usia pelanggan 41 tahun dengan pendapatan tahunan tinggi dan skor penilaian rendah.
+# Gerombol 5: rata-rata usia pelanggan 32 tahun dengan pendapatan tahunan tinggi dan skor penilaian tinggi.
 
 ## Hierarchical clustering
 # Pemilihan banyaknya gerombol
@@ -109,3 +118,16 @@ fviz_cluster(hc.data)
 # Interpretasi gerombol
 data.hc <- data[,-c(1,2,6)]
 aggregate(data.hc, by=list(cluster=hc.data$cluster), FUN = mean)
+
+# Gerombol 1: rata-rata usia pelanggan 45 tahun dengan pendapatan tahunan rendah dan skor penilaian rendah.
+# Gerombol 2: rata-rata usia pelanggan 25 tahun dengan pendapatan tahunan rendah dan skor penilaian tinggi.
+# Gerombol 3: rata-rata usia pelanggan 43 tahun dengan pendapatan tahunan sedang dan skor penilaian sedang.
+# Gerombol 4: rata-rata usia pelanggan 33 tahun dengan pendapatan tahunan tinggi dan skor penilaian tinggi.
+# Gerombol 5: rata-rata usia pelanggan 41 tahun dengan pendapatan tahunan tinggi dan skor penilaian tinggi.
+# Gerombol 6: rata-rata usia pelanggan 39 tahun dengan pendapatan tahunan tinggi dan skor penilaian rendah.
+# Gerombol 7: rata-rata usia pelanggan 32 tahun dengan pendapatan tahunan tinggi dan skor penilaian tinggi.
+
+# Kesimpulan: Berdasarkan gerombol-gerombol yang sudah dibuat, pihak otoritas mal dapat membuat pendekatan
+# pemasaran yang lebih strategis dan tepat sasaran. Sebagai contoh, terdapat pelanggan dengan
+# pendapatan tahunan tinggi, namun skor penilaiannya rendah. Pihak otoritas mal dapat menggali
+# gagasan untuk mengangkat minat pelanggan tersebut.

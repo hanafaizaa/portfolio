@@ -37,7 +37,12 @@ test_X <- as.matrix(predict(preprocessParams, test[, -6]))
 train_y <- train[, 6]
 test_y <- test[, 6]
 
-# Pemodelan dengan NN
+# Pemodelan dengan NN: terdapat tiga jenis layer, yaitu input later, hidden layer, dan output layer.
+# 1. Input layer berfungsi menerima informasi dari luar. Neuron pada layer ini sebanyak peubah penjelas pada data.
+# 2. Hidden layer berfungsi mengubungkan layer input dan output. Dibangun 5 hidden layer dengan 100 neuron yang dibangun menggunakan fungsi aktivasi ReLU.
+# setiap layer ditambahkan parameter dropout dengan rate = 0.3 untuk menghindari overfitting.
+# 3. Output layer berfungsi mengeluarkan hasil pengolahan informasi. Output layer hanya punya 1 neuron dengan fungsi aktivasi linier.
+
 library(keras)
 library(tensorflow)
 library(dplyr)
@@ -55,7 +60,11 @@ model <- keras_model_sequential() %>%
   layer_dropout(0.3) %>%
   layer_dense(units = 1, activation = "linear")
 
-# Kompilasi Model
+# Kompilasi Model: dilakukan untuk menentukan parameter training model.
+# 1. Loss function digunakan untuk mengukur seberapa bagus performa yang dihasilkan oleh model dalam melakukan prediksi.
+# 2. Optimizer: digunakan untuk mengubah bobot supaya mengurangi loss.
+# 3. Metrics: digunakan untuk menilai kinerja model. Mirip dengan loss function, namun metrics tidak digunakan dalam training model.
+
 model %>% compile(
   loss = "mean_squared_error",
   optimizer = "adam",
@@ -66,15 +75,18 @@ model %>% compile(
 history <- model %>% fit(
   train_X, train_y,
   shuffle = T,
-  epochs = 50,
-  batch_size = 32,
-  validation_split = 0.2
+  epochs = 50,              # putaran training model
+  batch_size = 32,          # sampel data yang dihitung dalam satu iterasi
+  validation_split = 0.2    # proporsi sampel acak untuk analisis
 )
 
 plot(history)
 print(model)
 
 # Evaluasi Model
+# 1. RMSE menunjukkan besarnya tingkat kesalahan prediksi. Semakin kecil nilainya, maka hasil prediksi akan semakin akurat.
+# 2. R-Squared menunjukkan seberapa besar keragaman yang dapat dijelaskan oleh model. Semakin mendekati 100%, maka model yang dibangun semakin bagus.
+# 3. MAE mempresentasikan rata-rata kesalahan mutlak antara hasil prediksi dengan nilai aktual. Semakin kecil nilainya, maka hasil prediksi akan semakin akurat.
 keras_test <- model %>% predict(test_X)
 postResample(keras_test[,1], test$rate)
 

@@ -5,6 +5,15 @@
 # Data yang digunakan adalah dataset Auto dari library ISLR. Peubah yang akan digunakan adalah peubah mpg
 # (mil per galon), horsepower (tenaga kuda mesin), dan origin (asal mobil, 1 = amerika; 2 = eropa; 3 = jepang).
 
+# 1. Regresi linier cocok untuk hubungan linier antara peubah respon dengan peubah penjelas.
+# 2. Regresi polinomial cocok untuk pola data yang melengkung.
+# 3. Regresi fungsi tangga cocok untuk pola data yang berubah-ubah secara tajam di titik tertentu.
+# 4. Spline regression cocok untuk hubungan yang berubah-ubah tapi tetap mulus.
+# 4.1. B-spline: menggunakan basis spline untuk membentuk kurva yang lebih fleksibel.
+# 4.2. Natural spline: mirip dengan B-spline tapi memaksa ekor kurva di ujung data menjadi linier.
+# 5. Smoothing spline cocok untuk data yang banyak noise dan butuh kurva yang mulus.
+# 6. Fungsi LOESS cocok untuk hubungan non-linier yang kompleks.
+
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
@@ -19,8 +28,7 @@ tibble(AutoData)
 pairs(AutoData, lower.panel = NULL) 
 # Peubah mpg dan horsepower memiliki plot yang membentuk suatu lengkungan, 
 # sedangkan plot peubah origin dengan kedua peubah lainnya tidak membentuk suatu pola tertentu. 
-# Sehingga, peubah yang akan dianalisis hanya peubah mpg sebagai peubah respon 
-# dan peubah horsepower sebagai peubah penjelas.
+# Sehingga, peubah yang akan dianalisis hanya peubah mpg sebagai peubah respon dan peubah horsepower sebagai peubah penjelas.
 
 # Regresi Linier
 mod_linear <- lm(mpg ~ horsepower, data = AutoData)
@@ -93,6 +101,7 @@ for(j in 2:3){
   }
 }
 breaks_tangga
+
 # Fungsi tangga dengan nilai AIC terkecil adalah fungsi dengan breaks = 6.
 # Selanjutnya, akan dibangun model fungsi tangga dengan breaks = 6.
 
@@ -107,7 +116,7 @@ ggplot(AutoData,aes(x=horsepower, y=mpg)) +
   theme_bw()
 
 # Regresi Spline
-knots <- attr(bs(AutoData$horsepower, df=6),"knots") #banyak knots yang digunakan
+knots <- attr(bs(AutoData$horsepower, df=6),"knots") # banyak knots yang digunakan
 
 ## B-spline
 mod_bspline = lm(mpg ~ bs(horsepower, knots =knots), data=AutoData)
@@ -170,6 +179,8 @@ ggplot(pred_data,aes(x=x,y=y))+
   ylab("triceps")+
   theme_bw()
 
+# Setelah menambahkan parameter pemulusan, garis pada plot terlihat lebih mengikuti pola data.
+
 # Fungsi LOESS
 model_loess <- loess(mpg ~ horsepower, data = AutoData)
 summary(model_loess)
@@ -217,7 +228,11 @@ nama_model <- c("Linier","Polinomial ordo 1", "Polinomial ordo 2","Polinomial or
 eval.mod <- data.frame(nama_model, nilai_MSE)
 eval.mod
 
-# Evaluasi model dengan cross validation (membagi data ke dalam data latih dan data uji)
+# Tanpa membagi data ke dalam data latih dan data uji terlebih dahulu, model terbaik adalah model regresi b-spline dengan nilai MSE terkecil, yaitu 18.10643.
+
+# Evaluasi model dengan cross validation (CV)
+# CV berarti secara otomatis membagi data ke dalam data latih dan data uji, tergantung parameter CV yang digunakan. CV = 1, data utuh; CV = 2, data dibagi menjadi dua bagian; dst.
+
 # Penetapan Parameter CV
 cross_val <- vfold_cv(AutoData, v=10, strata = "mpg")
 
@@ -336,6 +351,8 @@ mod_tangga_cv <- cbind(breaks=breaks,mod_tangga_cv)
 mod_tangga_cv %>% slice_min(rmse, n = 5)
 mod_tangga_cv %>% slice_min(mae, n = 5)
 
+# Fungsi tangga dengan nilai RMSE dan MAE terkecil adalah fungsi dengan breaks = 8.
+
 # Regresi Spline
 ## B-spline
 mod_bspline_cv <- map_dfr(cross_val$splits,
@@ -398,6 +415,8 @@ mod_loess_cv <- cbind(span=span,mod_loess_cv)
 mod_loess_cv %>% slice_min(rmse)
 mod_loess_cv %>% slice_min(mae)
 
+# Nilai span dengan RMSE dan MAE terkecil adalah 0.3755102.
+
 # Perbandingan Hasil Model
 eval.mod.cv <- rbind(mean_mod_lin_cv, mean_mod_polinomial1_cv, mean_mod_polinomial2_cv, mean_mod_polinomial3_cv,
                      mean_mod_polinomial4_cv, mod_tangga_cv[6,2:3],mean_mod_bspline_cv, mean_mod_nspline_cv,
@@ -405,3 +424,5 @@ eval.mod.cv <- rbind(mean_mod_lin_cv, mean_mod_polinomial1_cv, mean_mod_polinomi
 rownames(eval.mod.cv) <- c("Linier","Polinomial ordo 1", "Polinomial ordo 2","Polinomial ordo 3",
                            "Polinomial ordo 4","Fungsi Tangga", "B-Spline", "Natural Spline", "Fungsi LOESS")
 eval.mod.cv
+
+# Berdasarkan hasil pemodelan dengan menggunakan CV = 10, model dengan nilai RMSE dan MAE terkecil adalah model LOESS.
